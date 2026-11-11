@@ -6,8 +6,10 @@ import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.js';
 import { MerkleTree } from '../sdk/src/crypto.js';
 
 await initCrypto();
-const ART = { wasm: 'artifacts/dev/transaction2x2.wasm', zkey: 'artifacts/dev/transaction2x2.zkey' };
-const vkey = JSON.parse(fs.readFileSync('artifacts/dev/verification_key.json'));
+// NPR_KEYSET=mainnet writes contract/tests/fixtures/mainnet.json (used by `cargo test --features mainnet`)
+const SET = process.env.NPR_KEYSET ?? 'dev';
+const ART = { wasm: `artifacts/${SET}/transaction2x2.wasm`, zkey: `artifacts/${SET}/transaction2x2.zkey` };
+const vkey = JSON.parse(fs.readFileSync(`artifacts/${SET}/verification_key.json`));
 const TOKEN = 'wrap.testnet';
 const VALID_UNTIL = 1000n;
 
@@ -38,7 +40,7 @@ function decodeProof(b64) {
 
 const alice = new ShieldedWallet(new Keypair(11n), pool, ART);
 const bob = new ShieldedWallet(new Keypair(22n), pool, ART);
-const out = { note: 'DEV zkey fixtures; not for mainnet', empty_root: hex(tree().root()) };
+const out = { note: `${SET} zkey fixtures`, empty_root: hex(tree().root()) };
 
 // 1) alice deposits 10 native (yocto) units
 await alice.sync();
@@ -83,8 +85,8 @@ const bal = (w) => `${w.balance('near')} NEAR / ${w.balance(TOKEN)} wNEAR`;
 console.log('alice', bal(alice), '| bob', bal(bob));
 if (alice.balance('near') !== 4n || alice.balance(TOKEN) !== 3n || bob.balance('near') !== 6n || bob.balance(TOKEN) !== 2n) throw new Error('unexpected balances');
 
-fs.writeFileSync('contract/tests/fixtures/dev.json', JSON.stringify(out, null, 2));
-console.log('wrote contract/tests/fixtures/dev.json');
+fs.writeFileSync(`contract/tests/fixtures/${SET}.json`, JSON.stringify(out, null, 2));
+console.log(`wrote contract/tests/fixtures/${SET}.json`);
 process.exit(0);
 
 function hex(x) {

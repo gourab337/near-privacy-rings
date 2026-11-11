@@ -12,5 +12,5 @@ $SNARKJS zkey beacon "$1" "$out/transaction2x2.zkey" "$beacon" 10 -n="drand quic
 $SNARKJS zkey verify "$R1CS" "$PTAU" "$out/transaction2x2.zkey" | tail -3
 $SNARKJS zkey export verificationkey "$out/transaction2x2.zkey" "$out/verification_key.json"
 cp "$ROOT/circuits/build/transaction2x2_js/transaction2x2.wasm" "$out/transaction2x2.wasm"
-node "$ROOT/scripts/gen-vk.mjs" "$out/verification_key.json" "$ROOT/contract/src/vk.rs"
-echo "mainnet artifacts in artifacts/mainnet; contract/src/vk.rs regenerated"
+node "$ROOT/scripts/gen-vk.mjs" "$out/verification_key.json" "$ROOT/contract/src/vk_mainnet.rs"
+echo "mainnet artifacts in artifacts/mainnet; contract/src/vk_mainnet.rs regenerated"

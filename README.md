@@ -71,9 +71,13 @@ wallet connection. Deposits and the confidential ring use NEAR Wallet Selector.
 ## Security
 
 - **Unaudited.** The circuit follows Tornado Nova's design, but this code has not been reviewed by a third party.
-- **Trusted setup.** Phase 1 is the PSE Perpetual Powers of Tau (80+ contributors). The
-  testnet key in `artifacts/dev` has one throwaway phase-2 contribution and must never
-  secure real funds. The mainnet key's ceremony is documented in `ceremony/`.
+- **Trusted setup.** Phase 1 is the PSE Perpetual Powers of Tau (80+ contributors; checked
+  with `snarkjs powersoftau verify`). **Phase 2 of the mainnet key is single-party:** one
+  contribution by the deployer, followed by a drand beacon. Anyone holding that contribution's
+  randomness could forge proofs, so you must trust the deployer. The deposit caps exist for
+  this reason. Production will replace this key with a multi-party ceremony; the tooling and
+  runbook are in [`ceremony/`](ceremony/README.md). `artifacts/dev` (testnet) has one
+  throwaway contribution.
 - **Upgradeability.** The owner can list tokens, set caps and pause. It cannot move user
   notes. The deployer account keeps its key, so it can redeploy the contract. That is
   disclosed here rather than hidden. Deposits are capped.

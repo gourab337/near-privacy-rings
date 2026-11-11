@@ -21,6 +21,12 @@ mod field;
 mod poseidon_consts;
 mod tree;
 mod verifier;
+// Dev key (tests, testnet): single throwaway contribution. Mainnet: build with --features mainnet.
+#[cfg(not(feature = "mainnet"))]
+#[path = "vk_dev.rs"]
+mod vk;
+#[cfg(feature = "mainnet")]
+#[path = "vk_mainnet.rs"]
 mod vk;
 
 use field::{parse, public_amount, sha256_field, to_hex, Hasher, F32};

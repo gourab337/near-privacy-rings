@@ -1,0 +1,123 @@
+{
+  "note": "mainnet zkey fixtures",
+  "empty_root": "2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e",
+  "deposit": {
+    "args": {
+      "proof": "T3hfXA/IsraJmUgZ+dcxe9OnjU+vqnlJbFbGMDkMjh5WYm3BV4yeCRQ9JBLkx3Z36eQdJI1slUCOyt3Up3ccJ6HoGjmZWxQg7CFY9fCRs07XL7r57wUieimtRcVQIZsLXQjDUSIKEnSANZi7gyCiWZ1WoNunjBpg46mG++VLrxBZo2jZkdWaMReE1B3kGFibq83gfsEHc+JOmDrlDAWZG+i8pAHRcvOsH+Nr2SD3XsCBz88KvHzGRxsaZA/aIlYP+ZUGHj9uNmf/B0tsaPCyg8jClOTubFnkAfvR7FwHsgGrEFQaYoqYPVg3IeZ9QZ2vaeFsWwewwaBUOXBd4nPyKg==",
+      "root": "2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e",
+      "input_nullifiers": [
+        "19c1637d5b220f6c6a05993880fda1c2366a7fc8254a1edc9ca31ab6249c2c7f",
+        "2c4967f89fc52a1d5640149993f8ea9b2c824accf8c41faa3b1562a60fee828d"
+      ],
+      "output_commitments": [
+        "1a589ec5dfae2b8cc620dd474a78ea9fd77e25b496e96c45c58419ebe0e490f3",
+        "1d21f34601650ce5e46f9c4bfd3d379b63181ed15ad386348044e5438be0e025"
+      ],
+      "public_amount": "000000000000000000000000000000000000000000000000000000000000000a",
+      "ext_data_hash": "00b669f66b1e1d8e1b94a9ebaed73e84590414fd74f10545d73eb3be051aa6c9",
+      "public_asset": "00ba34770bccfde756708d47d83fb7c8257fe8a4b3a35f25d385a8284021f476"
+    },
+    "ext_data": {
+      "recipient": "",
+      "ext_amount": "10",
+      "relayer": "",
+      "fee": "0",
+      "encrypted_output1": "CeTN32/LzSI6TBa1JK4Dwn7Upf9IbE++FUIzPHnc9RrrdNVHTHOsFIWFUg6IN/vgVnQXt9B1QItA8x1Dra470dzr5acfgmt5X/fftbuvvjF3EAI6H843GarZwT0uAgz1fx8v5nu7csY4x3t53bNgo8WzsWxPzN4IhRaEvlF+EAUpTqJGKbP2SE2qbM6TC+ZrVQCto2rrzWE=",
+      "encrypted_output2": "JaIc2mBwuQMOrjAQg6G1b1jCZ/B5RQT8G5ricAil1Dku9rHR/EZMkqyNvxzDFpuBWfkRhFf3gEsUmvdjjMwzjEgXBam8tY+bLw2ybk5SLxueBOZWe64LxkMKNy5tBGF74iDg62Qi/CnF2TQmvx1b/ZVLJXZdG93rsy73GPw3R6hMucI4E4PWTdRQJ9wZ2Hd3/O5KTljd2uA=",
+      "token": "near",
+      "swap_leg": "0000000000000000000000000000000000000000000000000000000000000000",
+      "valid_until": "0"
+    }
+  },
+  "root_after_deposit": "03a9c654486e040a5696b1ab00fd1cadaad6055e346c67421facbd5ac746f02d",
+  "transfer": {
+    "args": {
+      "proof": "Xh5T4OqtHQtATg9U3SSmeWUcy0ZGat5EexnYOzFr7ySC0whaojKJtnXvfMdeovy55bMbndHQ68MqvZEZWMOpE4PyBowOvIJe+CdDnpEc/hkBiTkxH+OX3uCl5TdofJ0RnT+fDanQatEJ4896Y1lrnSZn29R9mMGx3VIZ2tfaVgyp/rCwh+j4EpNbL+b+JwZtF8vrbVHxYlhb/eHA6qhgEMFZCmvJMTk93siQ3zrGgkaLAtG536TXmEekaHSHMIsuQY/YRkd4m2QSWw64xo4cAqb5tIGBma39QiuOEwuxNiVJAycJQpdYO2ImcPJRP9KvetgV+RnDP07unuYWvaF7GA==",
+      "root": "03a9c654486e040a5696b1ab00fd1cadaad6055e346c67421facbd5ac746f02d",
+      "input_nullifiers": [
+        "2556d9c27e4c240911b2506df8f8b8c9c25f178ffc384698cca1c41aac504716",
+        "00fe63b5047f82eb8627fa74839582570e5d03bf24d0ff67103119cc1c7be918"
+      ],
+      "output_commitments": [
+        "0d0484c0a93c0009a0abaad196eca2d57cd42de4dcc7c3a345f19ecd06342e27",
+        "04d3379f517b3f3816e3ae930ce0c2ab05d107a70ceda58cd5a82fbec158e7cf"
+      ],
+      "public_amount": "0000000000000000000000000000000000000000000000000000000000000000",
+      "ext_data_hash": "007a0b104f182c411b60bf8d7b1a8e1e3b82c8112b846e61f9c39d7252709d91",
+      "public_asset": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "ext_data": {
+      "recipient": "",
+      "ext_amount": "0",
+      "relayer": "",
+      "fee": "0",
+      "encrypted_output1": "3X+wUBbn35iCD3Rk2j/gXE8EXXpD20eMTsjgvYmC+ymioVyLjr7ehyIH+pfRqqzljKReaO/jMQBcPnit18p1NXMBHak4K/68IRYyuqm7Qq91EYnK2Sh/AIf7EoWoqy4/hl4vKQhJh4L+KgjbclS9wKu6i6m0duivqErAL0AAoezpvlCmZmddk83s7yh037cmnk4XDG9J/Wc=",
+      "encrypted_output2": "wuaA8Sng17eDG/ZW+Dy42GpXxwNFY92IDgKxuaKiJw6bE11lOQPxLbPqDENLMiJog2sEep9gZM9Fql8tLwz20WJHBxqzjg5uc23+mJkfwD6UzC6/rYPyX5bP+Ped1uHgZFGKkVg3z1uvwkxcOXlFNpkX5clLv/2p9LfA2RQwy+Qgc2dTg+NdTkVrVv35q+cD3A0z4p62U9c=",
+      "token": "",
+      "swap_leg": "0000000000000000000000000000000000000000000000000000000000000000",
+      "valid_until": "0"
+    }
+  },
+  "root_after_transfer": "13b2e5c85ecacc1f4f3b11dbfc927649e148fe1b6b88b62229cbfdf4337070b0",
+  "ft_deposit": {
+    "msg": "{\"args\":{\"proof\":\"udAffXwFslrzCojkKCdkVj6TGa0vDCS9EzjZQSrNjRWrubcztbrKvnjfHu7gmjUmxLo5Q/ipoo/IWjeu5ICpJfRxaQVqbbrzdWTmaGekNt4Mp4ewgQU72ic0BA6JF0opiPShlCA2IIx4oYqTZThzVpoUOarY+FmTzGPY5FemhBUfvlbks9TmNyZuCAo2kORagXZUS8iRday/go0BZPn4LhtdGu1UTU/B0bvmA7+whGT9WbiQn/JqZAVFJL44q5cAc/GXhx203SbbKnCcg0y0V3KGQFTxCa6ZRZLC8V2BJygdhhXAYUQjyAg43vFcZgXJId44xgDtPaLGfl/3Hl17Cw==\",\"root\":\"13b2e5c85ecacc1f4f3b11dbfc927649e148fe1b6b88b62229cbfdf4337070b0\",\"input_nullifiers\":[\"27b75dfeb21682618abcc10f590136832285292792f30c0e6cce13305b64df4d\",\"008ec446a671750511d08867f7a1c70e837108c4f9cfb8d1a57ec2e36a261ffd\"],\"output_commitments\":[\"219d2e51120d513d89b8ca428755fb6cf10e278e2b5de735f935c0fa53e9083d\",\"1bf9212527031b8a4869f76d88e0d77ea1fc5b22ce865c5efca988a3da90dcb6\"],\"public_amount\":\"0000000000000000000000000000000000000000000000000000000000000005\",\"ext_data_hash\":\"0025f041a2d1a459e27098afc56731bac67e9f706763f99bf0a8d32c91a72f9d\",\"public_asset\":\"00bceb8f2f4cc4e187506be0114353985798c90d83063a5c70bf6d607449d773\"},\"ext_data\":{\"recipient\":\"\",\"ext_amount\":\"5\",\"relayer\":\"\",\"fee\":\"0\",\"encrypted_output1\":\"RNdu58KKVaB9OT6cH2hY6p6HwYz5troiz9577RJIRxL8AIPy/SBrpVJTTi/AvYgso+Z/OojCWDIYhILrYvT3cPAf4IxD8vNcIrq5ghkK2NIcQypEGDUb4lbZeAbPAUgjuyhKQ6ZteTH1IDe9b6981+IwLwH+VEKkOuCeOtAb9EwbX8ed8rVZ6G/WqkeyVluj7TVZm3w4xjQ=\",\"encrypted_output2\":\"WCdPcV7PDDf531Y2CxlL0PlD7TXH0IQ7ZrNdprb57D9od+AGDXGHvtH7OibiecgUfyyCeK8G263xBg9MUHr83QLu6R5Co3hq9dakKj/GD9C12W0oSe7ngAOkjZu/ckwajLw8RGJCQtm7lHSrVK2Q5qhxuolEWtecPXL5tns0GIIE/+4JdslGJ12HcC2OOZ0Cz91cBep/09k=\",\"token\":\"wrap.testnet\",\"swap_leg\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"valid_until\":\"0\"}}",
+    "amount": "5",
+    "token": "wrap.testnet"
+  },
+  "swap": {
+    "leg_a": {
+      "proof": "VEgI62D1RrWDGBFMuLzmaffriW0DKGxPJYsuMzNfjBvR/EaT5wS3iTjrWnM+m1J7axbAFyFfK0P34Bu2CPOrEkcvB3PG2CqRgIp5HlWwN3CxJ9zW1cWT8uEuKZcVZZsaDu0hGPi3WtN68clFV9ScWxLWhLUvO/6Kla5XnUvg1AXVjSM0TgUGq8JPxhrSF0VOyYnc30jp7yQ2cM9V+P9uBJUyzaHfC8AhiKk5X3SdcacLu0WBlRHrwqeyKfOc7tETUuiKuCbJQWwlId0Lw2k6S0EielANVHIUhaoR+51nhijSPTYiLN/zsxoufotS5B53wzAs3//YJdb/4JITdg/ZAg==",
+      "root": "0d4b42221cc2ec7b3b452cda1accea5dc62cc6cc4127aba0d8bd93ceb0ed92b4",
+      "input_nullifiers": [
+        "1002b857573d73f1c99fc8e6334a596c3fe92910e121393e49b0729b5a6c4137",
+        "23e8b4164839e05e543362437ffc869e44a2c114d7ea0e4e4d11c40b4f3baff0"
+      ],
+      "output_commitments": [
+        "0b8cf2ddf67956906b93730b0f98ddc483446479c3e821d912f5394eb12ddcc5",
+        "1540532cdf993c1dd50613dee92599248e67b813e727650c0b63bf9987fc41a6"
+      ],
+      "public_amount": "0000000000000000000000000000000000000000000000000000000000000000",
+      "ext_data_hash": "00eb649c73546d017d23346bfeace755318add6941a9bb6dca3242939295d57a",
+      "public_asset": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "ext_a": {
+      "recipient": "",
+      "ext_amount": "0",
+      "relayer": "",
+      "fee": "0",
+      "encrypted_output1": "t0snAt97EUGDCDrw61kRKOz+JVdPrBdTLPNAQ8N7tAl7UF4mWU0BmUFYT6iFQlIqV/G5WvFJAsQd1U9H+c6J0cKtrFN1GcysMbpJsblOELwLkrjalLjzMR7NX170AoC82t8VQTMg6Juef3UqzHDvWRwpyZk68URnybgfeF8WEpsv01JMiSjpxgEVHi5cpdQMmrJVsk+w7LQ=",
+      "encrypted_output2": "HEFIyv+1hq3PcFFJnydeQafaAgOMVJNRFl4M3a6HTnh+YvT/WHyeMUiFh2oMgDhivadDJ1WUqOU9O78ZCgZBIhgvF9zQXqMBDB0iUSh3NaK8RNVbJiQQl19dyZqnvlssF/AZThssBO3/AUsWK0xWa36bLEuTMkMCeT9lkR6FV1B8b0SNcwPShtHhuM/7eK3kj4UBx2+vIKQ=",
+      "token": "",
+      "swap_leg": "181bb722f9d06f69ad861aced6cc5d0ab4edd6598eead0c57be3cdff1c44716e",
+      "valid_until": "1000"
+    },
+    "leg_b": {
+      "proof": "Uw8pko1zJE1U9R0KEXW2k4j1fOU6SuwBc8GTmMBUWBo8Z6eNPPoPRYk91qFwxptBv6ZW6ovXdo/zAogfYAExLk6U4HD6iQq+29sCxPrksypHN/Poms9S5Sf/lMD2Na0GHeHJLzZwjAjyTdF4J/nMbVYvIxbAW3B/I80Cftcm0gdZh6SudEx2oLkwJe6O0MZHuesKNaGaJX2/E7fmTRkrBSccgSSbdIkAbbdPkQlFGyn0dJB7CxRm14ct7eNXj4kU2HqBUuGrGRrWMHMFDTA3f/SSuCgRNKCmyYC2y+DIYhOqNHPDHiww8K4PwwmeiVqegCnRnZwhNFzSlaFgY6VDLA==",
+      "root": "0d4b42221cc2ec7b3b452cda1accea5dc62cc6cc4127aba0d8bd93ceb0ed92b4",
+      "input_nullifiers": [
+        "1e5d21c2c1685e66ce3390b3e86115f5e50f03bebbd3ebf946c658c5ba8529a0",
+        "2f4c24960f0cde9346bbad5ba86ab1d4e8399c5854541bb88b61a0c087e5b1ce"
+      ],
+      "output_commitments": [
+        "181bb722f9d06f69ad861aced6cc5d0ab4edd6598eead0c57be3cdff1c44716e",
+        "0d38ca1a16b2fdda415a43b01b3c42106f2baadd552372dc437234204f98c214"
+      ],
+      "public_amount": "0000000000000000000000000000000000000000000000000000000000000000",
+      "ext_data_hash": "00c7599813bc3953b3f67fb7b192769f35db5a9da5fbaa004d070725418d7f0c",
+      "public_asset": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "ext_b": {
+      "recipient": "",
+      "ext_amount": "0",
+      "relayer": "",
+      "fee": "0",
+      "encrypted_output1": "7DOOHsDuMEG4M6tfsNdJqNXGA1BulEqtUHa3QAu8pgyXLc2D+8jCu/VZh+onZ/QV56ey2Vd8yhlF9my41bthJSQtQL2CtW9Bp59vLzJTI58zmG8koPFQp5Cp1Gt6UpuQ3ihLni9oymVrxXVaT+a84y3TTuj0hX6hpNISeKsbtwLbU2yffV+PbOhJLy8+vUBJDtVd8q8zTLA=",
+      "encrypted_output2": "6GWv73axvA83XQEbbB++l3Dqk+Yy2DPg11ciYkJs/F5S2ZnCf/WJ2hQ+Q1zZYeo0q7yv6FiEswzkPEAkGAQfiFyCQ9yuuwCfueGGqZBWFc2I7770atXlonTJIajmcjOA1v+sFVzmG+Fs7pDoeOieiVyIQKJLBgYY3U0hXdFbw5SIKn9s5awsBGk6P5EvGsiAfkYCgmzzhUc=",
+      "token": "",
+      "swap_leg": "0b8cf2ddf67956906b93730b0f98ddc483446479c3e821d912f5394eb12ddcc5",
+      "valid_until": "1000"
+    }
+  },
+  "swap_valid_until": 1000,
+  "root_after_swap": "100553c7b01eb47b68ad3f4735619cf0f10cf8f7164af31e0120a78ca14b08d8"
+}

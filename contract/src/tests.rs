@@ -9,7 +9,11 @@ use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig};
 const WRAP: &str = "wrap.testnet";
 
 fn fx() -> Value {
-    serde_json::from_str(include_str!("../tests/fixtures/dev.json")).unwrap()
+    #[cfg(not(feature = "mainnet"))]
+    let raw = include_str!("../tests/fixtures/dev.json");
+    #[cfg(feature = "mainnet")]
+    let raw = include_str!("../tests/fixtures/mainnet.json");
+    serde_json::from_str(raw).unwrap()
 }
 fn tx(v: &Value) -> (TxArgs, ExtData) {
     (serde_json::from_value(v["args"].clone()).unwrap(), serde_json::from_value(v["ext_data"].clone()).unwrap())

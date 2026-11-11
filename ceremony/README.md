@@ -1,5 +1,10 @@
 # Mainnet trusted setup (Groth16 phase 2)
 
+> **Current mainnet key (hackathon): single-party setup.** Phase 2 has one contribution, by
+> the deployer, made with OS randomness that was never written to disk, followed by a public
+> drand beacon. Users must trust that the deployer did not keep that randomness. Before
+> production, the multi-party ceremony below replaces this key. The tooling is ready.
+
 **Phase 1** is the PSE Perpetual Powers of Tau, `ppot_0080_15.ptau` (80+ public
 contributions). We checked it with `snarkjs powersoftau verify` ("Powers of Tau Ok!").
 
@@ -36,5 +41,7 @@ reproducible build of this commit (`cargo near build reproducible-wasm`).
 | # | Contributor | Contribution hash (first 16 bytes) |
 |---|---|---|
 | 0 | `groth16 setup` from ppot_0080_15 | (none: deterministic) |
+| 1 | NEAR Privacy Rings deployer (single-party, hackathon) | `b3ecae19 15344947 30bed7e7 a904824c` |
+| 2 | Beacon: drand quicknet round 33855329, 2^10 iterations | `481f266365199be85ca45f490aecf940…` (beacon generator) |
 
-Beacon: drand quicknet round **TBD** (announced before it is produced).
+Final key: `artifacts/mainnet/transaction2x2.zkey`. `./ceremony/verify.sh` prints the full chain and "ZKey Ok!".
