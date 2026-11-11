@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 import { createAgentTools, loadAgentKey } from './tools.js';
 
 const BASE = process.env.NEAR_AI_BASE_URL ?? 'https://cloud-api.near.ai/v1';
-const MODEL = process.env.NEAR_AI_MODEL ?? 'zai-org/GLM-5.1-FP8';
+const MODEL = process.env.NEAR_AI_MODEL ?? 'z-ai/glm-5.3-flash';
 const KEY = process.env.NEAR_AI_API_KEY;
 if (!KEY) throw new Error('set NEAR_AI_API_KEY (https://cloud.near.ai, or the hackathon credits at https://nearbuilders.org/dashboard)');
 const auth = { authorization: `Bearer ${KEY}` };

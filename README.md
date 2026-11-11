@@ -118,7 +118,27 @@ NPR_MAX_PAYMENT=0.05 node agent/mcp.js
 NEAR_AI_API_KEY=... node agent/demo.mjs "What is your shielded address and balance?"
 ```
 
-Tested on testnet through an MCP client: the agent was paid 0.1 NEAR privately, refused a
+A real run of `agent/demo.mjs` on testnet with the model `z-ai/glm-5.3-flash` on NEAR AI
+Cloud, given the task "A data seller sent this invoice: 0.01 NEAR to npr2fdc…. Pay it
+privately, then check the receipt":
+
+```text
+[model reply b6bdc47f…] signed by provider_tee key 5a0210f2442c7935… over these exact bytes
+[tool] shielded_balance({}) -> {"near":"0.050000","fee_per_payment_near":"0.020000","max_per_payment_near":"0.05"}
+[model reply df9da8b1…] signed by provider_tee key 5a0210f2442c7935… over these exact bytes
+[tool] private_send({"amount_near":"0.01","to":"npr2fdc…"}) -> {"tx":"GNK1kVmVD1YMU6kwRQWg42QnvNjUsCVrjg9CiuGU6UB8", …}
+[model reply e2246bef…] signed by provider_tee key 5a0210f2442c7935… over these exact bytes
+[tool] verify_receipt({"receipt":"nprreceipt…"}) -> {"valid":true, …}
+I privately paid the seller's shielded address 0.01 NEAR plus a 0.02 NEAR privacy fee.
+The returned receipt verifies as valid on-chain.
+```
+
+The payment is [this transaction](https://testnet.nearblocks.io/txns/GNK1kVmVD1YMU6kwRQWg42QnvNjUsCVrjg9CiuGU6UB8):
+signed by the shared gas account, with no trace of the agent. `provider_tee` means the
+reply was signed by the key of the TEE serving the model; the script verified each
+signature against the exact request and response bytes.
+
+Also tested on testnet through an MCP client: the agent was paid 0.1 NEAR privately, refused a
 0.06 NEAR payment (cap 0.05), paid 0.03 NEAR privately
 ([transaction](https://testnet.nearblocks.io/txns/EK6ZJeV3EHhidxM6ccnuN43JtHRKLHbxCYZQZrzssYGc)),
 and its receipt verified. Payments are NEAR only, since the open ring is.
