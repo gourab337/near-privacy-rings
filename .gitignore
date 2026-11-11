@@ -6,3 +6,6 @@ contract/target/
 *.log
 .DS_Store
 app/dist/
+
+# agent shielded key
+agent/.agent-key

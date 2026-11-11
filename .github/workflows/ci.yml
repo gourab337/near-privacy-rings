@@ -9,6 +9,8 @@ jobs:
         with: { node-version: 22 }
       - uses: dtolnay/rust-toolchain@stable
       - run: cd sdk && npm ci && npm test
+      - name: agent tools (real proofs, in-memory pool)
+        run: cd agent && npm ci && npm test
       - name: contract unit tests (real Groth16 proofs, alt_bn128 host functions)
         run: cd contract && cargo test --lib
       - name: fixtures are reproducible from the SDK

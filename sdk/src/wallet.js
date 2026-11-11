@@ -124,11 +124,12 @@ export class ShieldedWallet {
   }
 
   /** Merge two notes of `token` into one (keeps balances spendable in 2-input txs). */
-  async merge(token) {
+  async merge(token, { relayer = '', fee = 0n } = {}) {
+    fee = BigInt(fee);
     const asset = assetId(token);
     const inputs = this.notes.filter((n) => n.asset === asset).sort((a, b) => (a.amount < b.amount ? -1 : 1)).slice(0, 2);
-    const outputs = [new Note({ amount: sum(inputs), keypair: this.keypair, asset })];
-    return this.#tx(await this.#prove({ inputs, outputs, asset }));
+    const outputs = [new Note({ amount: sum(inputs) - fee, keypair: this.keypair, asset })];
+    return this.#tx(await this.#prove({ inputs, outputs, asset, token: fee > 0n ? token : '', relayer, fee }));
   }
 
   // ---------------------------------------------------------------- swap (P2P, atomic)

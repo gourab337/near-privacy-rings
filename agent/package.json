@@ -1,0 +1,10 @@
+{
+  "name": "@near-privacy-rings/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Private payments for AI agents: MCP tools over a shielded balance, no NEAR account needed",
+  "bin": { "npr-agent": "mcp.js" },
+  "scripts": { "test": "node --test --test-timeout=120000 test/*.test.js" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.20.0" }
+}

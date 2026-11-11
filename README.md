@@ -91,6 +91,48 @@ What this does not solve, stated plainly:
   same account feature to shielded-pool anonymity.
 - **Your RPC node still sees your IP address**, as a relayer would.
 
+## Private payments for AI agents
+
+An AI agent that pays for things on a public chain shows everyone what it buys, from whom
+and for how much. Giving it a normal account also means giving it gas and a key that can
+spend everything.
+
+[`agent/`](agent/) gives an agent a shielded balance instead. Because of the open ring, the
+agent needs **no NEAR account, no gas and no relayer**: its only secret is a shielded key.
+
+- **MCP server** (`agent/mcp.js`): works with any MCP client. Tools: `shielded_address`,
+  `shielded_balance`, `private_send`, `private_withdraw`, `verify_receipt`.
+- **Spending cap outside the model**: `NPR_MAX_PAYMENT` (NEAR per payment) is enforced by the
+  tool code, so a confused or prompt-injected model cannot exceed it.
+- **Receipts**: every `private_send` returns a receipt the agent can hand to the payee or an
+  auditor (see Disclosure below).
+- **NEAR AI Cloud demo** (`agent/demo.mjs`): a model hosted in a TEE on NEAR AI Cloud drives
+  the tools, and the script checks NEAR AI Cloud's signature over each model reply.
+  It does not verify the hardware attestation behind that signature.
+
+```bash
+# as an MCP server (testnet; the shielded key is created in agent/.agent-key on first run)
+NPR_MAX_PAYMENT=0.05 node agent/mcp.js
+# driven by a NEAR AI Cloud model
+NEAR_AI_API_KEY=... node agent/demo.mjs "What is your shielded address and balance?"
+```
+
+Tested on testnet through an MCP client: the agent was paid 0.1 NEAR privately, refused a
+0.06 NEAR payment (cap 0.05), paid 0.03 NEAR privately
+([transaction](https://testnet.nearblocks.io/txns/EK6ZJeV3EHhidxM6ccnuN43JtHRKLHbxCYZQZrzssYGc)),
+and its receipt verified. Payments are NEAR only, since the open ring is.
+
+## Disclosure: private by default, provable on request
+
+- **Viewing key** (`Keypair.viewingKey()`, starts with `nprview`). Hand it to an auditor and
+  they can decrypt every note you receive: deposits, payments and your own change. It
+  cannot spend. Limit: it cannot tell which notes you later spent, because nullifiers need
+  the spending key. A full viewing key needs a circuit change (see Roadmap).
+- **Payment receipt** (starts with `nprreceipt`). The sender of a private payment keeps the
+  opening of the note they created. Anyone given the receipt can check against the chain
+  (`verifyReceipt`) that a note of exactly that token and amount exists for that shielded
+  address. It reveals that one payment and nothing else.
+
 ## How it works
 
 - **Notes.** `commitment = Poseidon(amount, pubKey, blinding, asset)` and
@@ -126,6 +168,21 @@ What this does not solve, stated plainly:
   notes. The deployer account keeps its key, so it can redeploy the contract. That is
   disclosed here rather than hidden. Deposits are capped.
 
+## Roadmap
+
+Not done for the hackathon, and needed before this holds meaningful value:
+
+1. **Multi-party trusted setup.** Replace the single-party mainnet key with a public
+   ceremony. The scripts and runbook are in [`ceremony/`](ceremony/README.md).
+2. **Immutable pool.** Remove the deployer's upgrade key and make pause stop deposits only,
+   so nobody can change the contract or block withdrawals.
+3. **Independent audit** of the circuit and the contract.
+4. **Full viewing keys.** A separate nullifier key in the circuit, so an auditor can see
+   spends as well as receipts; and auditor-bound rings like Helius's policy rings.
+5. **Open ring hardening.** Several gas accounts, and NEAR's newer gas keys, to reduce
+   spam and key collisions. Fees in tokens other than NEAR.
+6. **An indexer**, so wallets do not scan every leaf.
+
 ## Hackathon disclosures
 
 Built for [NEAR HACKATHON](https://nearhackathon.com) (tracks: `privacy`, `defi`, `open`).
@@ -139,6 +196,7 @@ Built for [NEAR HACKATHON](https://nearhackathon.com) (tracks: `privacy`, `defi`
   No human auditor has reviewed this code.
 - **Libraries and prior designs (Q-005):** circom and circomlib (Poseidon, Merkle gadgets),
   snarkjs, near-sdk, arkworks (`ark-bn254`, `ark-ff`), near-api-js, NEAR Wallet Selector,
+  the MCP TypeScript SDK,
   tweetnacl, noble-hashes, Vite. The note and nullifier scheme follows Tornado Cash Nova.
   The product shape follows Helius's Solana Privacy Rings; no Helius code is used.
   Phase 1 of the trusted setup is the PSE Perpetual Powers of Tau.

@@ -1,19 +1,23 @@
 # NEAR Privacy Rings: one entry point for building and testing.
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 
-.PHONY: install wasm test test-contract test-sandbox test-sdk circuits e2e-testnet
+.PHONY: install wasm test test-contract test-sandbox test-sdk test-agent circuits e2e-testnet
 
 install:            ## JS dependencies
 	cd sdk && npm ci --silent
 	cd circuits && npm ci --silent
+	cd agent && npm ci --silent
 
 wasm:               ## contract wasm -> contract/target/near/near_privacy_rings.wasm
 	cd contract && cargo near build non-reproducible-wasm
 
-test: test-sdk test-contract test-sandbox   ## everything that needs no network
+test: test-sdk test-agent test-contract test-sandbox   ## everything that needs no network
 
 test-sdk:
 	cd sdk && npm test
+
+test-agent:         ## agent payment tools against an in-memory pool, real proofs
+	cd agent && npm test
 
 test-contract:      ## unit tests: real Groth16 proofs verified with alt_bn128 host functions
 	cd contract && cargo test --lib

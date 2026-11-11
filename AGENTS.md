@@ -8,7 +8,9 @@ anonymous withdrawals and atomic private swaps. README.md says what is and is no
 Requirements: Node 22+, Rust with the `wasm32-unknown-unknown` target. No keys or funds needed.
 
 1. `make install` — installs JS dependencies.
-2. `make test-sdk` — expect 5 passing tests (note encryption, addresses, Merkle paths, field encodings).
+2. `make test-sdk` — expect 6 passing tests (note encryption, addresses, Merkle paths, field
+   encodings, viewing key and payment receipt). `make test-agent` — expect 1 passing test:
+   an agent is paid privately, refuses a payment over its cap, pays, and its receipt verifies.
 3. `make test-contract` — expect 16 passing tests. They run real Groth16 proofs
    (fixtures in `contract/tests/fixtures/`) through the contract, including NEAR's
    `alt_bn128` host functions: deposit, transfer, token deposit, swap, double spend,
@@ -26,6 +28,8 @@ Optional: `make test-sandbox` runs the same flow on a local NEAR sandbox and pri
 | `contract/src/lib.rs` | Pool contract: `transact`, `swap`, `ft_on_transfer`, `claim_failed` |
 | `contract/src/verifier.rs` | Groth16 verification with `alt_bn128` host functions |
 | `sdk/src/wallet.js` | Shielded wallet: sync, deposit, transfer, withdraw, swap offers |
+| `agent/tools.js`, `agent/mcp.js` | Private payments for AI agents: tools and an MCP server |
+| `agent/demo.mjs` | The same tools driven by a model on NEAR AI Cloud (needs an API key) |
 | `relayer/server.js` | Relayer for anonymous submission (fallback, and for tokens other than NEAR) |
 | `open-ring/testnet.json` | Function-call keys published on purpose (see below) |
 | `scripts/setup-open-ring.mjs` | Creates the gas account and its keys |
@@ -42,6 +46,8 @@ README.md, "Open ring", explains the design and its limits.
 
 ## What is not claimed
 
+- `agent/demo.mjs` checks the signature on each model reply. It does not verify the
+  hardware attestation behind the signing key.
 - No human audit. The security review was done by an AI agent.
 - The mainnet proving key has a single-party phase 2 (see README, Security).
 - The deployer keeps an upgrade key. Deposits are capped.
