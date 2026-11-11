@@ -481,7 +481,9 @@ async function boot() {
     if (!nearAccount) return modal.show();
     if (confirm(`Disconnect ${nearAccount}?`)) await (await selector.wallet()).signOut();
   });
-  fetch(`${RELAYER_URL}/info`).then((r) => r.json()).then((i) => (relayerInfo = i)).catch(() => {});
+  // the default relayer URL is a local dev server: don't probe it from the public site
+  const localRelayer = /\/\/(localhost|127\.0\.0\.1)[:/]/.test(RELAYER_URL) && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if (!localRelayer) fetch(`${RELAYER_URL}/info`).then((r) => r.json()).then((i) => (relayerInfo = i)).catch(() => {});
 
   busy('Loading the proving key (12 MB, once)…');
   await initCrypto();
