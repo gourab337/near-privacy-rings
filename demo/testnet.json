@@ -1,0 +1,28 @@
+{
+  "note": "Public on purpose: testnet demo keys. Anyone can spend these demo balances. See README, Try the demo.",
+  "pool": "npr-pool-65673.testnet",
+  "people": {
+    "alice": {
+      "account": "alice.npr-demo-7262.testnet",
+      "key": "a29afa78dc8a4aed7b028ac4083de67c26c70b3bb01b3fd7c80360c6ced71d"
+    },
+    "bob": {
+      "account": "bob.npr-demo-7262.testnet",
+      "key": "5d97dcdadea58b0b95bc30277278f851f3a7857e0283e184d943d114efa584"
+    }
+  },
+  "sessions": [
+    "7120d88221943384e405d10bfed2d9734b27d07f40fb3263206e7e5bbbee7e",
+    "d3c10d49b52245af3a1a5b03f69f4207078f0c5e0e3ff3929438146b985dd0",
+    "21b525af951fc519a7c273b6bd840da6905b57ae5ee31fe4005a9fcd42f1f3",
+    "ea9fb931d93d31f975293522479992f69d8c20b2e4e31b09998b2b6cc40dc9",
+    "cfaf70d0048f693a2a2bdf0015d0bb938505cad5eba765d1230539b9b98fae",
+    "dccc415a077e724231495c27cc4ab4c945a824dc8d79c6ea95b18e30a24aec",
+    "e06e3c82db6a964793c33b5ff8426735287940f39d34d76a13260e0b8cae1a",
+    "9b99d05c98d31679c75f690ea8c76c2eba84b09914607552b862783cddc347",
+    "a171d3c3d3c167459ee8d9f5302e23f343c9e53ca20bf66602b3016726a5df",
+    "daedd436c423e7569a78adc307a77d819150856954b1f5a5f0d01a0e6645b2",
+    "c2246ddcab23e8077c44beaf5dcb9554db021e237def1249db4b4a6b410164",
+    "c36bf5e160d6d5983470fecf8e934535299db9b465101961d093d58e4f5087"
+  ]
+}
