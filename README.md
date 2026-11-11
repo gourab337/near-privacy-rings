@@ -44,7 +44,8 @@ Measured gas: deposit and transfer about 63 Tgas, private swap about 123 Tgas
 (the per-transaction limit is 300 Tgas). Every proof also pays a 0.01 NEAR storage fee
 for the two leaves and two nullifiers it adds.
 
-Web app: `cd app && npm ci && npm run dev`. Proofs are generated in the browser (about 5 s).
+Web app: `cd app && npm ci && npm run dev`. Proofs are generated in the browser; a full
+anonymous withdraw, proof included, took about 12 s in our headless test.
 Anonymous actions go through the relayer, so sending, withdrawing and swapping need no
 wallet connection. Deposits and the confidential ring use NEAR Wallet Selector.
 
@@ -81,6 +82,25 @@ wallet connection. Deposits and the confidential ring use NEAR Wallet Selector.
 - **Upgradeability.** The owner can list tokens, set caps and pause. It cannot move user
   notes. The deployer account keeps its key, so it can redeploy the contract. That is
   disclosed here rather than hidden. Deposits are capped.
+
+## Hackathon disclosures
+
+Built for [NEAR HACKATHON](https://nearhackathon.com) (tracks: `privacy`, `defi`, `open`).
+
+- **Other submission by the same person (rule Q-015):**
+  [near-intents-freeze-thesis](https://github.com/gourab337/near-intents-freeze-thesis),
+  an investment-thesis entry. The two projects are independent and share no code.
+- **Baseline (Q-001, Q-003):** none. Every commit in this repo was made inside the hackathon window.
+- **AI-written code (Q-005):** most of the code was written with Claude Code, directed and
+  reviewed by the author. The security review mentioned below was also done by an AI agent.
+  No human auditor has reviewed this code.
+- **Libraries and prior designs (Q-005):** circom and circomlib (Poseidon, Merkle gadgets),
+  snarkjs, near-sdk, arkworks (`ark-bn254`, `ark-ff`), near-api-js, NEAR Wallet Selector,
+  tweetnacl, noble-hashes, Vite. The note and nullifier scheme follows Tornado Cash Nova.
+  The product shape follows Helius's Solana Privacy Rings; no Helius code is used.
+  Phase 1 of the trusted setup is the PSE Perpetual Powers of Tau.
+- **Earlier work on NEAR:** hideyour.cash (Opact) deployed a Groth16 mixer on NEAR around 2023.
+  This project does not claim to be the first zero-knowledge pool on NEAR.
 
 ## License
 
