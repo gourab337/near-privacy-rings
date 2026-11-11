@@ -14,10 +14,22 @@
         <span>NEAR Privacy Rings</span>
         <span class="pill" id="network"></span>
       </div>
-      <button id="connect" class="ghost">Connect NEAR wallet</button>
+      <button id="connect" class="ghost">Connect wallet</button>
     </header>
 
     <main>
+      <section class="hero">
+        <h1>Private balances on NEAR, enforced by zero-knowledge proofs.</h1>
+        <p>Deposit, pay, withdraw and swap without showing the chain who you are or how much you moved. Anonymous payments need no wallet and no relayer.</p>
+        <ul class="facts">
+          <li><b>No relayer</b> anonymous NEAR payments are signed with a public key anyone can use</li>
+          <li><b>Proved here</b> proofs are made in this browser, checked by the contract</li>
+          <li><b>Unaudited</b> experimental; deposits are capped</li>
+        </ul>
+      </section>
+
+      <div id="viewonly" class="notice" hidden>View-only mode. This is a viewing key: it shows every note this address received, including ones already spent. It cannot spend.</div>
+
       <section class="card" id="account">
         <div class="row between">
           <h2>Shielded balance</h2>
@@ -42,6 +54,7 @@
           <button data-tab="send">Send</button>
           <button data-tab="withdraw">Withdraw</button>
           <button data-tab="swap">Swap</button>
+          <button data-tab="disclose">Disclose</button>
         </nav>
 
         <form data-panel="deposit" class="panel">
@@ -60,6 +73,7 @@
             <label><input type="radio" name="ring" value="confidential" /> Confidential: your wallet submits, no fee</label>
           </fieldset>
           <button type="submit">Send privately</button>
+          <div id="receipt-out" class="codebox" hidden><label>Payment receipt. Keep it: it proves this one payment to whoever you show it to.</label><textarea readonly rows="2"></textarea><button type="button" class="ghost small" id="receipt-copy">Copy receipt</button></div>
           <div class="public"></div>
         </form>
 
@@ -99,12 +113,29 @@
               <form id="swap-complete">
                 <strong>Maker:</strong> paste the response code to settle both sides atomically
                 <textarea name="code" rows="2" placeholder="response code" required></textarea>
-                <button type="submit" class="small">Settle swap (via relayer)</button>
+                <button type="submit" class="small">Settle swap</button>
               </form>
             </li>
           </ol>
           <div id="swap-out" class="codebox" hidden><label></label><textarea readonly rows="3"></textarea><button class="ghost small" id="swap-copy">Copy</button></div>
           <div class="public"></div>
+        </div>
+
+        <div data-panel="disclose" class="panel" hidden>
+          <p class="muted">Private by default, provable on request. Nothing here touches the chain.</p>
+          <div class="block">
+            <strong>Viewing key for an auditor</strong>
+            <p class="muted">Whoever holds it can read every note you receive: deposits, payments and your change. They cannot spend, and they cannot see which notes you spent.</p>
+            <div class="row"><button type="button" id="show-view" class="ghost small">Show viewing key</button><button type="button" id="copy-view" class="ghost small">Copy</button></div>
+            <code id="view-out" hidden></code>
+          </div>
+          <form id="verify-receipt" class="block">
+            <strong>Check a payment receipt</strong>
+            <p class="muted">Paste a receipt someone gave you. The app recomputes the note and looks for it in the pool.</p>
+            <textarea name="receipt" rows="2" placeholder="nprreceipt…" required></textarea>
+            <button type="submit" class="small">Check against the chain</button>
+            <div id="verify-out" class="public"></div>
+          </form>
         </div>
       </section>
 

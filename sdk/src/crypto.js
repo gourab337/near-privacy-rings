@@ -189,6 +189,10 @@ export const extDataHash = (ext) => sha256Field(encodeExtData(ext));
 
 // ---------- byte helpers ----------
 
+/** URL-safe base64 of a JSON value. (The browser Buffer polyfill has no 'base64url'.) */
+export const encodeJson = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export const decodeJson = (s) => JSON.parse(Buffer.from(s.trim().replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString());
+
 export function toBytes32BE(x) {
   return Buffer.from(BigInt(x).toString(16).padStart(64, '0'), 'hex');
 }

@@ -50,7 +50,8 @@ for the two leaves and two nullifiers it adds.
 Web app: `cd app && npm ci && npm run dev`. Proofs are generated in the browser; a full
 anonymous withdraw through the open ring, proof included, took about 7 s in our headless test.
 Anonymous sends and withdrawals need no wallet connection. Deposits and the confidential
-ring use NEAR Wallet Selector.
+ring use NEAR Wallet Selector. The Disclose tab shows your viewing key, checks payment
+receipts, and a viewing key pasted into "Import key" opens a view-only wallet.
 
 ## Open ring: anonymity without a relayer
 

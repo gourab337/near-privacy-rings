@@ -8,7 +8,7 @@ import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet';
 import { setupHereWallet } from '@near-wallet-selector/here-wallet';
 import { setupIntearWallet } from '@near-wallet-selector/intear-wallet';
 import { actionCreators } from '@near-js/transactions';
-import { Buffer, initCrypto, Keypair, Note, assetId, ShieldedWallet, OPEN_FEE } from '../../sdk/src/index.js';
+import { Buffer, initCrypto, Keypair, Note, assetId, ShieldedWallet, OPEN_FEE, verifyReceipt, encodeJson, decodeJson } from '../../sdk/src/index.js';
 import { poolClient, sendOpen } from '../../sdk/src/near.js';
 
 // ------------------------------------------------------------------ config
@@ -136,6 +136,7 @@ async function loadArtifacts() {
 function loadKeypair() {
   let k = null;
   try { k = localStorage.getItem(KEY_STORE); } catch {}
+  if (k?.startsWith('nprview')) return Keypair.fromViewingKey(k); // auditor: view-only
   const kp = k ? new Keypair(BigInt('0x' + k)) : new Keypair();
   if (!k) try { localStorage.setItem(KEY_STORE, kp.privKey.toString(16)); } catch {}
   return kp;
@@ -153,7 +154,7 @@ async function sync() {
 }
 
 function renderBalances() {
-  $('#balances').innerHTML = TOKENS.map((t) => `<div><b>${fromUnits(sw.balance(t.id), t.decimals)}</b><span>${t.symbol} · ${sw.notes.filter((n) => n.asset === assetId(t.id)).length} notes</span></div>`).join('');
+  $('#balances').innerHTML = TOKENS.map((t) => `<div><b>${fromUnits(sw.balance(t.id), t.decimals)}</b><span>${t.symbol}${sw.viewOnly ? ' received' : ''} · ${sw.notes.filter((n) => n.asset === assetId(t.id)).length} notes</span></div>`).join('');
 }
 
 // ------------------------------------------------------------------ ui helpers
@@ -216,8 +217,12 @@ async function onSend(form) {
   await run('Send', async () => {
     Keypair.parseAddress(form.to.value.trim());
     const to = form.to.value.trim();
-    const anon = anonymous ? await sendAnonymous(token, (opts) => sw.transfer(token, amount, to, opts)) : null;
-    const hashes = anon ? anon.hashes : await signAndSend([await sw.transfer(token, amount, to)]);
+    let receipt;
+    const build = async (opts) => { const c = await sw.transfer(token, amount, to, opts); receipt = c.receipt; return c; };
+    const anon = anonymous ? await sendAnonymous(token, build) : null;
+    const hashes = anon ? anon.hashes : await signAndSend([await build()]);
+    $('#receipt-out').hidden = false;
+    $('#receipt-out textarea').value = receipt;
     log(`Sent ${form.amount.value} ${t.symbol} privately (${anonymous ? 'anonymous' : 'confidential'})`, hashes);
     showPublic(form, anonymous
       ? [`${anon.who} submitted a transaction that paid a ${fromUnits(anon.fee, t.decimals)} ${t.symbol} fee.`, 'Not visible: you, the recipient, the amount.']
@@ -238,8 +243,8 @@ async function onWithdraw(form) {
   });
 }
 
-const encodeCode = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-const decodeCode = (s) => JSON.parse(Buffer.from(s.trim(), 'base64url').toString());
+const encodeCode = encodeJson;
+const decodeCode = decodeJson;
 function showCode(label, code) {
   const box = $('#swap-out');
   box.hidden = false;
@@ -292,6 +297,20 @@ async function onComplete(form) {
   });
 }
 
+async function onVerifyReceipt(form) {
+  const out = $('#verify-out');
+  try {
+    const r = await verifyReceipt(pool, form.receipt.value.trim());
+    const t = tokenOf(r.token);
+    const what = `${fromUnits(r.amount, t?.decimals ?? 24)} ${t?.symbol ?? r.token} to <code>${r.to.slice(0, 14)}…${r.to.slice(-6)}</code>`;
+    out.innerHTML = r.valid
+      ? `<b>Valid</b><div>The pool holds a note of exactly ${what} (leaf ${r.index}).</div><div>Not revealed: who paid, or anything else either side did.</div>`
+      : `<b>Not found</b><div>No note of ${what} is in the pool. The receipt is wrong, altered, or its payment has not settled.</div>`;
+  } catch (e) {
+    out.innerHTML = `<b>Not a valid receipt</b><div>${String(e.message ?? e).replace(/</g, '&lt;')}</div>`;
+  }
+}
+
 // ------------------------------------------------------------------ boot
 async function boot() {
   $('#network').textContent = NETWORK;
@@ -312,13 +331,17 @@ async function boot() {
   on('#swap-offer', onOffer);
   on('#swap-take', onTake);
   on('#swap-complete', onComplete);
+  on('#verify-receipt', onVerifyReceipt);
+  $('#show-view').addEventListener('click', () => { const o = $('#view-out'); o.hidden = !o.hidden; o.textContent = sw.keypair.viewingKey(); });
+  $('#copy-view').addEventListener('click', () => navigator.clipboard.writeText(sw.keypair.viewingKey()));
+  $('#receipt-copy').addEventListener('click', () => navigator.clipboard.writeText($('#receipt-out textarea').value));
   $('#sync').addEventListener('click', sync);
   $('#copy-address').addEventListener('click', () => navigator.clipboard.writeText(sw.keypair.address()));
   $('#swap-copy').addEventListener('click', () => navigator.clipboard.writeText($('#swap-out textarea').value));
-  $('#export-key').addEventListener('click', () => { const o = $('#key-out'); o.hidden = !o.hidden; o.textContent = sw.keypair.privKey.toString(16); });
+  $('#export-key').addEventListener('click', () => { const o = $('#key-out'); o.hidden = !o.hidden; o.textContent = sw.viewOnly ? 'This browser holds a viewing key only.' : sw.keypair.privKey.toString(16); });
   $('#import-key').addEventListener('click', async () => {
-    const k = prompt('Paste a shielded key (hex). This replaces the key in this browser.');
-    if (!k || !/^[0-9a-f]{1,64}$/i.test(k.trim())) return;
+    const k = prompt('Paste a shielded key (hex), or a viewing key (nprview…) to open a view-only wallet. This replaces the key in this browser.');
+    if (!k || !/^([0-9a-f]{1,64}|nprview[0-9a-f]{128})$/i.test(k.trim())) return;
     try { localStorage.setItem(KEY_STORE, k.trim().toLowerCase()); } catch {}
     location.reload();
   });
@@ -327,7 +350,7 @@ async function boot() {
   modal = setupModal(selector, { contractId: CONTRACT });
   const refreshAccount = () => {
     nearAccount = selector.store.getState().accounts.find((a) => a.active)?.accountId ?? null;
-    $('#connect').textContent = nearAccount ?? 'Connect NEAR wallet';
+    $('#connect').textContent = nearAccount ?? 'Connect wallet';
   };
   selector.store.observable.subscribe(refreshAccount);
   refreshAccount();
@@ -347,6 +370,7 @@ async function boot() {
   await initCrypto();
   sw = new ShieldedWallet(loadKeypair(), pool, await loadArtifacts());
   sw.restoreExpected(store.get(EXPECTED_STORE) ?? []);
+  $('#viewonly').hidden = !sw.viewOnly;
   $('#address').textContent = sw.keypair.address();
   busy(false);
   await sync();

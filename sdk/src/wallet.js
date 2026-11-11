@@ -1,7 +1,7 @@
 // Shielded wallet: syncs notes from the pool contract and builds proven transactions.
 // Transport-agnostic: `pool` needs only `view(method, args)`; built transactions are
 // returned as { method, args, deposit } (or an ft_transfer_call spec) for any signer.
-import { Buffer, Keypair, MerkleTree, Note, assetId } from './crypto.js';
+import { Buffer, Keypair, MerkleTree, Note, assetId, encodeJson, decodeJson } from './crypto.js';
 import { buildProof } from './prover.js';
 
 export const NATIVE = 'near';
@@ -226,13 +226,13 @@ export class ShieldedWallet {
 // amount for this address. Nothing else about the sender or recipient is revealed.
 
 export function encodeReceipt({ token, amount, to, blinding }) {
-  return 'nprreceipt' + Buffer.from(JSON.stringify({ token, amount: amount.toString(), to, blinding: blinding.toString() })).toString('base64url');
+  return 'nprreceipt' + encodeJson({ token, amount: amount.toString(), to, blinding: blinding.toString() });
 }
 
 /** Returns { valid, index, token, amount, to }. `valid` means the note is in the pool at `index`. */
 export async function verifyReceipt(pool, receipt) {
   if (!receipt.startsWith('nprreceipt')) throw new Error('invalid receipt');
-  const r = JSON.parse(Buffer.from(receipt.slice(10), 'base64url').toString());
+  const r = decodeJson(receipt.slice(10));
   const note = new Note({ amount: BigInt(r.amount), pubKey: Keypair.parseAddress(r.to).pubKey, blinding: BigInt(r.blinding), asset: assetId(r.token) });
   const cm = hex(note.commitment());
   for (let from = 0; ; from += PAGE) {
