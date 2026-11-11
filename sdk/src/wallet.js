@@ -1,0 +1,195 @@
+// Shielded wallet: syncs notes from the pool contract and builds proven transactions.
+// Transport-agnostic: `pool` needs only `view(method, args)`; built transactions are
+// returned as { method, args, deposit } (or an ft_transfer_call spec) for any signer.
+import { Keypair, MerkleTree, Note, assetId } from './crypto.js';
+import { buildProof } from './prover.js';
+
+export const NATIVE = 'near';
+const PAGE = 200;
+
+export class ShieldedWallet {
+  /**
+   * @param {Keypair} keypair
+   * @param {{ view: (method: string, args: object) => Promise<any>, contractId: string }} pool
+   * @param {{ wasm: any, zkey: any }} artifacts
+   */
+  constructor(keypair, pool, artifacts) {
+    this.keypair = keypair;
+    this.pool = pool;
+    this.artifacts = artifacts;
+    this.tree = new MerkleTree();
+    this.notes = []; // unspent owned notes
+    this.synced = 0;
+  }
+
+  /** Fetch new leaves, trial-decrypt, then drop notes whose nullifier is on-chain. */
+  async sync() {
+    for (;;) {
+      const leaves = await this.pool.view('get_leaves', { from_index: this.synced, limit: PAGE });
+      for (const leaf of leaves) {
+        const index = this.synced++;
+        const cm = BigInt('0x' + leaf.commitment);
+        this.tree.insert(cm);
+        const note = Note.decrypt(this.keypair, Buffer.from(leaf.encrypted_output, 'base64'), index);
+        // ignore ciphertexts that don't open to the committed note (spoofed or not ours)
+        if (note && note.amount > 0n && note.commitment() === cm) this.notes.push(note);
+      }
+      if (leaves.length < PAGE) break;
+    }
+    const spent = await Promise.all(this.notes.map((n) => this.pool.view('is_spent', { nullifier: hex(n.nullifier()) })));
+    this.notes = this.notes.filter((_, i) => !spent[i]);
+    return this;
+  }
+
+  balance(token) {
+    const a = assetId(token);
+    return this.notes.filter((n) => n.asset === a).reduce((s, n) => s + n.amount, 0n);
+  }
+
+  balances(tokens) {
+    return Object.fromEntries(tokens.map((t) => [t, this.balance(t)]));
+  }
+
+  // ---------------------------------------------------------------- builders
+
+  /** Public -> shielded. Native NEAR: call `transact` with deposit; NEP-141: ft_transfer_call. */
+  async deposit(token, amount) {
+    amount = BigInt(amount);
+    const asset = assetId(token);
+    const out = new Note({ amount, keypair: this.keypair, asset });
+    const { args, ext } = await this.#prove({ inputs: [], outputs: [out], asset, token, extAmount: amount });
+    if (token === NATIVE) return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: amount };
+    return {
+      receiverId: token,
+      method: 'ft_transfer_call',
+      args: { receiver_id: this.pool.contractId, amount: amount.toString(), msg: JSON.stringify({ args, ext_data: ext }) },
+      deposit: 1n,
+    };
+  }
+
+  /**
+   * Shielded -> shielded. Asset and amount stay hidden unless a relayer fee is paid
+   * (the fee reveals the asset). `relayer` set => anonymous ring (submit via relayer).
+   */
+  async transfer(token, amount, toAddress, { relayer = '', fee = 0n } = {}) {
+    amount = BigInt(amount);
+    fee = BigInt(fee);
+    const asset = assetId(token);
+    const to = Keypair.parseAddress(toAddress);
+    const inputs = this.#select(asset, amount + fee);
+    const change = sum(inputs) - amount - fee;
+    const outputs = [
+      new Note({ amount, pubKey: to.pubKey, asset, viewPk: to.viewPk }),
+      new Note({ amount: change, keypair: this.keypair, asset }),
+    ];
+    outputs[0].viewPk = to.viewPk;
+    return this.#tx(await this.#prove({ inputs, outputs, asset, token: fee > 0n ? token : '', relayer, fee }));
+  }
+
+  /** Shielded -> public account. Amount, asset and recipient are public. */
+  async withdraw(token, amount, recipient, { relayer = '', fee = 0n } = {}) {
+    amount = BigInt(amount);
+    fee = BigInt(fee);
+    const asset = assetId(token);
+    const inputs = this.#select(asset, amount + fee);
+    const outputs = [new Note({ amount: sum(inputs) - amount - fee, keypair: this.keypair, asset })];
+    return this.#tx(await this.#prove({ inputs, outputs, asset, token, recipient, extAmount: -amount, relayer, fee }));
+  }
+
+  /** Merge two notes of `token` into one (keeps balances spendable in 2-input txs). */
+  async merge(token) {
+    const asset = assetId(token);
+    const inputs = this.notes.filter((n) => n.asset === asset).sort((a, b) => (a.amount < b.amount ? -1 : 1)).slice(0, 2);
+    const outputs = [new Note({ amount: sum(inputs), keypair: this.keypair, asset })];
+    return this.#tx(await this.#prove({ inputs, outputs, asset }));
+  }
+
+  // ---------------------------------------------------------------- swap (P2P, atomic)
+
+  /** Maker: describe the note we want to receive. Share the returned offer with a taker. */
+  createOffer(giveToken, giveAmount, wantToken, wantAmount) {
+    const want = new Note({ amount: BigInt(wantAmount), keypair: this.keypair, asset: assetId(wantToken) });
+    this.pendingOffer = { want, giveToken, giveAmount: BigInt(giveAmount) };
+    return {
+      give: { token: giveToken, amount: String(giveAmount) },
+      want: { token: wantToken, amount: String(wantAmount), blinding: want.blinding.toString() },
+      makerAddress: this.keypair.address(),
+    };
+  }
+
+  /** Taker: prove our leg (pay the maker exactly the note they asked for). */
+  async takeOffer(offer) {
+    const maker = Keypair.parseAddress(offer.makerAddress);
+    const payAsset = assetId(offer.want.token);
+    const pay = new Note({ amount: BigInt(offer.want.amount), pubKey: maker.pubKey, blinding: BigInt(offer.want.blinding), asset: payAsset });
+    pay.viewPk = maker.viewPk;
+    const receive = new Note({ amount: BigInt(offer.give.amount), keypair: this.keypair, asset: assetId(offer.give.token) });
+    const inputs = this.#select(payAsset, pay.amount);
+    const change = new Note({ amount: sum(inputs) - pay.amount, keypair: this.keypair, asset: payAsset });
+    const leg = await this.#prove({ inputs, outputs: [pay, change], asset: payAsset, swapLeg: receive.commitment() });
+    return { leg, takerReceive: { amount: receive.amount.toString(), blinding: receive.blinding.toString(), address: this.keypair.address() } };
+  }
+
+  /** Maker: prove our leg against the taker's, and return the atomic `swap` call. */
+  async completeOffer(takerResponse) {
+    const { want, giveToken, giveAmount } = this.pendingOffer;
+    const taker = Keypair.parseAddress(takerResponse.takerReceive.address);
+    const giveAsset = assetId(giveToken);
+    const pay = new Note({ amount: giveAmount, pubKey: taker.pubKey, blinding: BigInt(takerResponse.takerReceive.blinding), asset: giveAsset });
+    pay.viewPk = taker.viewPk;
+    const inputs = this.#select(giveAsset, giveAmount);
+    const change = new Note({ amount: sum(inputs) - giveAmount, keypair: this.keypair, asset: giveAsset });
+    const mine = await this.#prove({ inputs, outputs: [pay, change], asset: giveAsset, swapLeg: want.commitment() });
+    return {
+      receiverId: this.pool.contractId,
+      method: 'swap',
+      args: { leg_a: mine.args, ext_a: mine.ext, leg_b: takerResponse.leg.args, ext_b: takerResponse.leg.ext },
+      deposit: 0n,
+    };
+  }
+
+  // ---------------------------------------------------------------- internals
+
+  #select(asset, needed) {
+    const mine = this.notes.filter((n) => n.asset === asset).sort((a, b) => (a.amount > b.amount ? -1 : 1));
+    const picked = mine.slice(0, 2);
+    if (sum(picked) < needed) {
+      throw new Error(
+        mine.length > 2 && sum(mine) >= needed
+          ? 'balance is split across more than 2 notes: run merge first'
+          : 'insufficient shielded balance',
+      );
+    }
+    return picked;
+  }
+
+  async #prove({ inputs, outputs, asset, token = '', recipient = '', extAmount = 0n, relayer = '', fee = 0n, swapLeg = 0n }) {
+    const pad = [...outputs];
+    while (pad.length < 2) pad.push(new Note({ amount: 0n, keypair: this.keypair, asset }));
+    const enc = pad.map((n) => n.encrypt(n.viewPk ?? this.keypair.view.publicKey));
+    const ext = { recipient, extAmount, relayer, fee, encryptedOutput1: enc[0], encryptedOutput2: enc[1], token, swapLeg };
+    const moves = extAmount !== 0n || fee !== 0n;
+    const r = await buildProof({ tree: this.tree, inputs, outputs: pad, asset, ext, publicAsset: moves ? asset : 0n, artifacts: this.artifacts, changeKeypair: this.keypair });
+    return { args: r.args, ext: extToJson(ext) };
+  }
+
+  #tx({ args, ext }) {
+    return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: 0n };
+  }
+}
+
+export function extToJson(e) {
+  return {
+    recipient: e.recipient,
+    ext_amount: e.extAmount.toString(),
+    relayer: e.relayer,
+    fee: e.fee.toString(),
+    encrypted_output1: Buffer.from(e.encryptedOutput1).toString('base64'),
+    encrypted_output2: Buffer.from(e.encryptedOutput2).toString('base64'),
+    token: e.token,
+    swap_leg: hex(e.swapLeg ?? 0n),
+  };
+}
+
+const hex = (x) => BigInt(x).toString(16).padStart(64, '0');
+const sum = (notes) => notes.reduce((s, n) => s + n.amount, 0n);

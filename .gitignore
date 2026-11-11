@@ -1,0 +1,7 @@
+node_modules/
+circuits/build/
+circuits/ptau/
+contract/target/
+.env
+*.log
+.DS_Store

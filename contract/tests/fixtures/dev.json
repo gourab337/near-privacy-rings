@@ -1,0 +1,60 @@
+{
+  "note": "DEV zkey fixtures — not for mainnet",
+  "empty_root": "2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e",
+  "root_after_deposit": "0adffc4918ede45e02711d7ab28f9eb49b2d06d54284b666de2e2e44756947b2",
+  "root_after_transfer": "0060f030ca6dd755b0f037b76215c1418241af21ce7aad73fc6d16b6a69ab7da",
+  "deposit": {
+    "args": {
+      "proof": "h8Ie1i/ym5OwrWw6oMR0dCJi/lXO3xy7GECxS/BZHyPeyx3obgMFrjyEug+b0UlhCVz9Nb1BATJW7gEh5nx4KxkhAHB2Owfw/heOnAyAVrwdSMjCScFN3u+Xvupttf8gjy58G3knAei/sVYQqQmwhcToqg2q6ojXhpbDeKm5nSJAYkdvAwqWh2rOfkIK0f92X/D7g3TKA2vad1rtFhTACQ+4KsUD0oSARtHnxdS6tjOHopSP+VRs9eUJ32wUGuEvJ08VTa7YvdrmKVGnNVuAkhyfClY+djyy/hFSCsudsxpRBl6soWb5WXy5xOPXSZaYFLcvlGxx9u9sBp6JGoEeKw==",
+      "root": "2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e",
+      "input_nullifiers": [
+        "2019f6f9d2bbaf74a24afa59e9c6f56c3da1f354546d88a4ce14c3a0603623d0",
+        "2392d7a11dcce472e66fcd03e906cce7cc2f5588ef0d9f01df5949366b3c6707"
+      ],
+      "output_commitments": [
+        "27d033c33a374240849f3c955eb0766a437c15a3bc8cf9bf61c80f75fdcfbd4b",
+        "0813ef16f338008bb327802e93e30564881953c4ccac2138d38efd988dcd3177"
+      ],
+      "public_amount": "000000000000000000000000000000000000000000000000000000000000000a",
+      "ext_data_hash": "003d5169ab5c6eb422bfcfde5e2ea87c23a39472d90c381634fd578f8671ff48",
+      "public_asset": "00ba34770bccfde756708d47d83fb7c8257fe8a4b3a35f25d385a8284021f476"
+    },
+    "ext_data": {
+      "recipient": "",
+      "ext_amount": "10",
+      "relayer": "",
+      "fee": "0",
+      "encrypted_output1": "z6N2GpjUtSQKmxOr071NNgbGa0wLWsHvZkpf6Xo5aSDs7LnYlRN16dtB0fzaq37P+WOUdIlxwqTz7sxWLyVOB+w63nyj1Zuw9+UJiOfeHoN0QKADzZdCH9+iXS38gCcx/X/WQCKeKyOaAO0Whvkb+yCUXerbKyTEpf6xcLadNmt5XAVIaZrYUq4tk1ypT+tNiM8sDO7G908=",
+      "encrypted_output2": "TSQyLMcY8Jl6TZuhbQ5zerLcfVGTq/iww6HjiXR5ZzzKKF+QkTPzz7sOYvp4UY6jrFahB5IJMb71akd8wt9lSgXK4tHttynw4qKeFO6lpjzvVrCBkugY8QTNMwOyIme8afAMHhx3aFBHsZYJTC1aMBF47GjMERk9p9cb2iFMKvner2759QImJY4uzcUS7Aww19z1/9maMWs=",
+      "token": "near",
+      "swap_leg": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "transfer": {
+    "args": {
+      "proof": "Mj273peoWfs4l0qiS/VaIpxugs6t/EiGlNmxOPMpqR8hEFcdyrjLIveeuZJczavc1j9i7A3h+EmBrZZi1lb3IdwVwrGnd8EGJagxefXZ2fDKqwq8vtUGqkFaieGf3ZUXdWGDS1dn//aHX+KcjJaLYMhe5opGSNka12bRlf5NXBK13op4yjanwf92ldJD7sFcmoKZk///3/pMoUGkKdjtJnm5t4M6l/QFaWo+uGJiVifwho8xj2JEQOLxSMM36LgFxlTdk/96d/1ry+aAMcU2VyhkXt8eckNNOVtTJ1GmFiV4rQGub8AUpfb5sZMWfkKwnZ6cbv1KKDDs7uleoIu/HA==",
+      "root": "0adffc4918ede45e02711d7ab28f9eb49b2d06d54284b666de2e2e44756947b2",
+      "input_nullifiers": [
+        "2a53a1adb8760125584539c1e20b657482aaeb88d01e9628e73e690d0aa88d95",
+        "2afdf8a4dfde3ecdd4ae1e66a4aee63826a7c53f6c613a039745e397d4cb02ed"
+      ],
+      "output_commitments": [
+        "01b361fce2a7758f36fb17d6db977a0054526663d75ad7b454cf3a81e34281f9",
+        "1c6991216be5bd10833120110a71d078a2651fa767e175c4163f8e7fc794c6e6"
+      ],
+      "public_amount": "0000000000000000000000000000000000000000000000000000000000000000",
+      "ext_data_hash": "00ce414bf0b20dcbe01be07995a60b53e95a5e9bdbcae88470cc6599232cc3c3",
+      "public_asset": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "ext_data": {
+      "recipient": "",
+      "ext_amount": "0",
+      "relayer": "",
+      "fee": "0",
+      "encrypted_output1": "PQtP7JC61XASRwLTsNqo/ZTGJOm5aITIPFPY8jgmNEyP2L3r/A0Ogs3fHcK+vKkYFEzI+zKiqtxOFz5sWngunRMOCIzxw3+9Q+/OKtaY41v3/LdaSIuU+Pf1woXLcArFbngr6xI2U9TWbrYgwTrYBSJOMrtvU/czrO2MTiPLBQnALaiH7QxMBeBdzl1Q6YMxIMJ/HdAlkoU=",
+      "encrypted_output2": "rfipetwx2ORyWMnYz+PU1rSeiugBiDagZHoFSSU6yHWnAcoaGM/bnaNtTBPwogsvggwdBkfJLIv0Kk7sJY8K+Ris2eMeLpJEMxiUfJ68nn0MuzM9HCCnUbxDltQdrUJkeHmOnQ+MO1Ce+jt6M9HrJCEyhd8zdRHmecKYtUrgsFxO0VmPSAPAl4C2I1qMekn7MhveA0sgphc=",
+      "token": "",
+      "swap_leg": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}
