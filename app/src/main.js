@@ -8,13 +8,17 @@ import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet';
 import { setupHereWallet } from '@near-wallet-selector/here-wallet';
 import { setupIntearWallet } from '@near-wallet-selector/intear-wallet';
 import { actionCreators } from '@near-js/transactions';
-import { Buffer, initCrypto, Keypair, Note, assetId, ShieldedWallet } from '../../sdk/src/index.js';
+import { Buffer, initCrypto, Keypair, Note, assetId, ShieldedWallet, OPEN_FEE } from '../../sdk/src/index.js';
+import { poolClient, sendOpen } from '../../sdk/src/near.js';
 
 // ------------------------------------------------------------------ config
 const NETWORK = import.meta.env.VITE_NETWORK ?? 'testnet';
 const CONTRACT = import.meta.env.VITE_CONTRACT ?? 'npr-pool-65673.testnet';
 const RELAYER_URL = import.meta.env.VITE_RELAYER_URL ?? 'http://localhost:8787';
-const RPC = import.meta.env.VITE_RPC ?? (NETWORK === 'mainnet' ? 'https://rpc.mainnet.near.org' : 'https://rpc.testnet.near.org');
+const RPC = import.meta.env.VITE_RPC ?? (NETWORK === 'mainnet' ? 'https://rpc.mainnet.fastnear.com' : 'https://rpc.testnet.fastnear.com');
+// open ring: published function-call keys of a gas account (see open-ring/README in the repo)
+const OPEN = Object.entries(import.meta.glob('../../open-ring/*.json', { eager: true, import: 'default' }))
+  .find(([f, o]) => f.endsWith(`/${NETWORK}.json`) && o.pool === CONTRACT)?.[1] ?? null;
 const WRAP = NETWORK === 'mainnet' ? 'wrap.near' : 'wrap.testnet';
 const TOKENS = [
   { id: 'near', symbol: 'NEAR', decimals: 24 },
@@ -97,6 +101,32 @@ async function relay(call) {
   return [j.txHash];
 }
 
+/**
+ * Anonymous submission. NEAR notes go through the open ring: the proof is signed in this
+ * browser with a published key, so there is no relayer and no wallet. Other tokens, or an
+ * open ring that fails (its gas account can be drained by spam), fall back to the relayer.
+ * `build(opts)` makes the proof for a route; returns { hashes, who, fee }.
+ */
+async function sendAnonymous(token, build) {
+  const routes = [];
+  if (OPEN && token === 'near') {
+    const { provider } = poolClient(CONTRACT, NETWORK, RPC);
+    routes.push({ opts: { fee: OPEN_FEE }, fee: OPEN_FEE, who: `A public key of <code>${OPEN.account}</code>, which anyone can use (no relayer),`, send: async (c) => [await sendOpen(provider, OPEN, c)] });
+  }
+  const f = minFee(token);
+  if (f !== null) routes.push({ opts: { relayer: relayerInfo.relayer, fee: f }, fee: f, who: `Relayer <code>${relayerInfo.relayer}</code>`, send: relay });
+  if (!routes.length) throw new Error('no anonymous route for this token: the relayer is offline');
+  let last;
+  for (const r of routes) {
+    try {
+      return { hashes: await r.send(await build(r.opts)), who: r.who, fee: r.fee };
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
 // ------------------------------------------------------------------ shielded wallet
 let sw;
 async function loadArtifacts() {
@@ -141,7 +171,7 @@ function log(text, hashes = [], err = false) {
   ul.prepend(li);
 }
 function showPublic(panel, rows) {
-  $('.public', panel).innerHTML = `<b>What the chain sees</b>${rows.map((r) => `<div>${r}</div>`).join('')}`;
+  $('.public', panel).innerHTML = `<b>What the chain sees</b>${rows.filter(Boolean).map((r) => `<div>${r}</div>`).join('')}`;
 }
 async function run(label, fn) {
   try {
@@ -185,13 +215,12 @@ async function onSend(form) {
   const anonymous = form.ring.value === 'anonymous';
   await run('Send', async () => {
     Keypair.parseAddress(form.to.value.trim());
-    const fee = anonymous ? minFee(token) : 0n;
-    if (anonymous && fee === null) throw new Error('relayer offline or token not accepted');
-    const call = await sw.transfer(token, amount, form.to.value.trim(), anonymous ? { relayer: relayerInfo.relayer, fee } : {});
-    const hashes = anonymous ? await relay(call) : await signAndSend([call]);
+    const to = form.to.value.trim();
+    const anon = anonymous ? await sendAnonymous(token, (opts) => sw.transfer(token, amount, to, opts)) : null;
+    const hashes = anon ? anon.hashes : await signAndSend([await sw.transfer(token, amount, to)]);
     log(`Sent ${form.amount.value} ${t.symbol} privately (${anonymous ? 'anonymous' : 'confidential'})`, hashes);
     showPublic(form, anonymous
-      ? [`Relayer <code>${relayerInfo.relayer}</code> submitted a transaction and was paid a ${fromUnits(fee, t.decimals)} ${t.symbol} fee.`, 'Not visible: you, the recipient, the amount.']
+      ? [`${anon.who} submitted a transaction that paid a ${fromUnits(anon.fee, t.decimals)} ${t.symbol} fee.`, 'Not visible: you, the recipient, the amount.']
       : [`Account <code>${nearAccount}</code> submitted a shielded transaction.`, 'Not visible: token, amount, recipient.']);
   });
 }
@@ -202,12 +231,10 @@ async function onWithdraw(form) {
   const anonymous = form.ring.value === 'anonymous';
   await run('Withdraw', async () => {
     const recipient = form.recipient.value.trim();
-    const fee = anonymous ? minFee(token) : 0n;
-    if (anonymous && fee === null) throw new Error('relayer offline or token not accepted');
-    const call = await sw.withdraw(token, amount, recipient, anonymous ? { relayer: relayerInfo.relayer, fee } : {});
-    const hashes = anonymous ? await relay(call) : await signAndSend([call]);
+    const anon = anonymous ? await sendAnonymous(token, (opts) => sw.withdraw(token, amount, recipient, opts)) : null;
+    const hashes = anon ? anon.hashes : await signAndSend([await sw.withdraw(token, amount, recipient)]);
     log(`Withdrew ${form.amount.value} ${t.symbol} to ${recipient}`, hashes);
-    showPublic(form, [`<code>${recipient}</code> received ${form.amount.value} ${t.symbol} from the pool${anonymous ? ` via relayer <code>${relayerInfo.relayer}</code>` : ''}.`, anonymous ? 'Not visible: which shielded balance paid it.' : `Also visible: <code>${nearAccount}</code> submitted it.`]);
+    showPublic(form, [`<code>${recipient}</code> received ${form.amount.value} ${t.symbol} from the pool.`, anonymous ? `${anon.who} submitted it.` : '', anonymous ? 'Not visible: which shielded balance paid it.' : `Also visible: <code>${nearAccount}</code> submitted it.`]);
   });
 }
 
@@ -311,9 +338,9 @@ async function boot() {
 
   fetch(`${RELAYER_URL}/info`).then((r) => r.json()).then((i) => {
     relayerInfo = i;
-    for (const f of $$('.fee')) f.textContent = `(fee ${fromUnits(BigInt(i.minFee.near), 24, 3)} NEAR or wNEAR, reveals which)`;
+    for (const f of $$('.fee')) f.textContent = OPEN ? '(0.02 fee, reveals the token; NEAR needs no relayer)' : `(fee ${fromUnits(BigInt(i.minFee.near), 24, 3)} NEAR or wNEAR, reveals which)`;
   }).catch(() => {
-    for (const f of $$('.fee')) f.textContent = '(relayer offline)';
+    for (const f of $$('.fee')) f.textContent = OPEN ? '(0.02 NEAR fee, no relayer; relayer for wNEAR is offline)' : '(relayer offline)';
   });
 
   busy('Loading proving key (12 MB, once)…');

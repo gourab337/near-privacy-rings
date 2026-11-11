@@ -7,6 +7,8 @@ import { buildProof } from './prover.js';
 export const NATIVE = 'near';
 /** Attached to every proof (leg) for the storage it adds; see contract STORAGE_FEE. */
 export const STORAGE_FEE = 10n ** 22n; // 0.01 NEAR
+/** Minimum NEAR fee of an open-ring (zero-deposit) transaction; see contract OPEN_MIN_FEE. */
+export const OPEN_FEE = 2n * STORAGE_FEE;
 const PAGE = 200;
 
 export class ShieldedWallet {

@@ -85,6 +85,19 @@ const bal = (w) => `${w.balance('near')} NEAR / ${w.balance(TOKEN)} wNEAR`;
 console.log('alice', bal(alice), '| bob', bal(bob));
 if (alice.balance('near') !== 4n || alice.balance(TOKEN) !== 3n || bob.balance('near') !== 6n || bob.balance(TOKEN) !== 2n) throw new Error('unexpected balances');
 
+// 5) open ring, on a fresh pool: carol deposits 0.05 NEAR, then withdraws 0.01 NEAR to
+//    carol.near with a 0.02 NEAR fee and no relayer (sent with zero deposit)
+leaves.length = 0;
+spent.clear();
+const carol = new ShieldedWallet(new Keypair(33n), pool, ART);
+await carol.sync();
+const [odep] = await carol.deposit('near', 5n * 10n ** 22n);
+apply(odep.args.args, odep.args.ext_data);
+await carol.sync();
+const owd = await carol.withdraw('near', 10n ** 22n, 'carol.near', { fee: 2n * 10n ** 22n });
+await check(owd.args.args, owd.args.ext_data, 'open withdraw');
+out.open = { deposit: odep.args, withdraw: owd.args };
+
 fs.writeFileSync(`contract/tests/fixtures/${SET}.json`, JSON.stringify(out, null, 2));
 console.log(`wrote contract/tests/fixtures/${SET}.json`);
 process.exit(0);

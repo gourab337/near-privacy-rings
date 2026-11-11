@@ -8,6 +8,9 @@
 //! * confidential — the user's own NEAR account submits `transact`; asset and amount
 //!   are hidden, the submitting account is visible.
 //! * anonymous    — a relayer submits the same proof and is paid a public `fee`.
+//! * open          — nobody's account submits: the proof is sent with zero deposit, e.g.
+//!   through a published function-call key of a gas account. The storage fee is taken
+//!   out of the proof's NEAR `fee`, and the rest goes to whoever paid the gas.
 //! * swap         — two proofs settle atomically; each commits (via `swap_leg`) to the
 //!   note it must receive from the other.
 use near_sdk::json_types::{Base64VecU8, I128, U128, U64};
@@ -37,6 +40,9 @@ pub const ENCRYPTED_OUTPUT_LEN: usize = 152; // eph pk 32 + nonce 24 + box(80) 9
 /// Charged per proof (leg) to pay for the storage it adds (2 leaves + 2 nullifiers ~ 0.007 NEAR),
 /// so nobody can fill the pool's storage or tree for free.
 pub const STORAGE_FEE: u128 = 10_000_000_000_000_000_000_000; // 0.01 NEAR
+/// Minimum NEAR `fee` of a zero-deposit (open ring) transaction: STORAGE_FEE stays in the
+/// pool, the rest refunds the submitting account's gas (a transaction burns about 0.0065 NEAR).
+pub const OPEN_MIN_FEE: u128 = 2 * STORAGE_FEE;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_ON_PAYOUT: Gas = Gas::from_tgas(10);
 
@@ -174,10 +180,21 @@ impl Pool {
 
     /// Deposit native NEAR, transfer, or withdraw. Attach STORAGE_FEE, plus `ext_amount`
     /// for a native deposit.
+    ///
+    /// Open ring: with zero deposit (function-call keys cannot attach any), a transfer or
+    /// withdrawal of NEAR notes pays for itself. Its `fee` must be at least OPEN_MIN_FEE;
+    /// the pool keeps STORAGE_FEE and pays the rest to the caller, whatever `relayer` says.
     #[payable]
     pub fn transact(&mut self, args: TxArgs, ext_data: ExtData) {
         let attached = env::attached_deposit().as_yoctonear();
         let ext = ext_data.ext_amount.0;
+        if attached == 0 {
+            require!(
+                ext <= 0 && ext_data.token == NATIVE && ext_data.fee.0 >= OPEN_MIN_FEE,
+                "without a deposit: NEAR transfers and withdrawals only, fee >= 0.02 NEAR"
+            );
+            return self.process(&args, &ext_data, Some(env::predecessor_account_id()));
+        }
         let value = if ext > 0 {
             require!(ext_data.token == NATIVE, "NEP-141 deposits go through ft_transfer_call");
             ext as u128
@@ -185,7 +202,7 @@ impl Pool {
             0
         };
         require!(attached == value + STORAGE_FEE, "attach ext_amount (native deposits) + STORAGE_FEE (0.01 NEAR)");
-        self.process(&args, &ext_data);
+        self.process(&args, &ext_data, None);
     }
 
     /// Prepay storage for NEP-141 deposits (one STORAGE_FEE per deposit).
@@ -213,7 +230,7 @@ impl Pool {
         require!(credit >= STORAGE_FEE, "prepay_storage first (0.01 NEAR per deposit)");
         self.storage_credit.insert(sender_id, credit - STORAGE_FEE);
         require!(m.ext_data.ext_amount.0 > 0 && m.ext_data.ext_amount.0 as u128 == amount.0, "amount mismatch");
-        self.process(&m.args, &m.ext_data);
+        self.process(&m.args, &m.ext_data, None);
         PromiseOrValue::Value(U128(0))
     }
 
@@ -327,7 +344,9 @@ impl Pool {
 // ---------------------------------------------------------------------- internals
 
 impl Pool {
-    fn process(&mut self, args: &TxArgs, ext: &ExtData) {
+    /// `open_caller`: set for zero-deposit transactions; that account gets the fee minus
+    /// STORAGE_FEE, which stays in the pool's balance to pay for the new storage.
+    fn process(&mut self, args: &TxArgs, ext: &ExtData, open_caller: Option<AccountId>) {
         require!(!self.paused, "paused");
         let v = self.verify_leg(args, ext, false);
         let mut h = Hasher::new();
@@ -346,9 +365,12 @@ impl Pool {
             self.payout(&ext.token, to, amount).detach();
         }
         if fee > 0 {
-            let relayer: AccountId = ext.relayer.parse().unwrap_or_else(|_| env::panic_str("invalid relayer"));
+            let (to, amount) = match open_caller {
+                Some(caller) => (caller, fee - STORAGE_FEE),
+                None => (ext.relayer.parse().unwrap_or_else(|_| env::panic_str("invalid relayer")), fee),
+            };
             self.debit(&ext.token, fee);
-            self.payout(&ext.token, relayer, fee).detach();
+            self.payout(&ext.token, to, amount).detach();
         }
         self.assert_solvent();
     }

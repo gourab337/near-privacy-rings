@@ -56,7 +56,7 @@
           <label>Recipient shielded address<input name="to" placeholder="npr…" required /></label>
           <div class="grid2"><label>Token<select name="token"></select></label><label>Amount<input name="amount" inputmode="decimal" placeholder="0.05" required /></label></div>
           <fieldset class="ring"><legend>Ring</legend>
-            <label><input type="radio" name="ring" value="anonymous" checked /> Anonymous: relayer submits, you never sign <span class="fee"></span></label>
+            <label><input type="radio" name="ring" value="anonymous" checked /> Anonymous: you never sign, no wallet needed <span class="fee"></span></label>
             <label><input type="radio" name="ring" value="confidential" /> Confidential: your wallet submits, no fee</label>
           </fieldset>
           <button type="submit">Send privately</button>
@@ -68,7 +68,7 @@
           <label>Recipient NEAR account<input name="recipient" placeholder="someone.near" required /></label>
           <div class="grid2"><label>Token<select name="token"></select></label><label>Amount<input name="amount" inputmode="decimal" placeholder="0.03" required /></label></div>
           <fieldset class="ring"><legend>Ring</legend>
-            <label><input type="radio" name="ring" value="anonymous" checked /> Anonymous: relayer submits <span class="fee"></span></label>
+            <label><input type="radio" name="ring" value="anonymous" checked /> Anonymous: you never sign <span class="fee"></span></label>
             <label><input type="radio" name="ring" value="confidential" /> Confidential: your wallet submits</label>
           </fieldset>
           <button type="submit">Withdraw</button>

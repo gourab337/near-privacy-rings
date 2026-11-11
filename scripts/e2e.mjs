@@ -8,8 +8,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.js';
-import { blockHeight, poolClient, signerAccount, send } from '../sdk/src/near.js';
+import { initCrypto, Keypair, ShieldedWallet, OPEN_FEE } from '../sdk/src/index.js';
+import { blockHeight, poolClient, signerAccount, send, sendOpen } from '../sdk/src/near.js';
 
 const env = process.env;
 const NETWORK = env.NPR_NETWORK ?? 'testnet';
@@ -51,18 +51,25 @@ const show = async () => {
   for (const [n, p] of [['alice', alice], ['bob', bob]]) console.log(`  ${n}: ${fmt(p.w.balance('near'))} NEAR, ${fmt(p.w.balance(WRAP))} wNEAR (shielded)`);
 };
 
-step('1. alice deposits 0.2 NEAR (public: alice, 0.2 NEAR)');
+step('1. alice deposits 0.3 NEAR (public: alice, 0.3 NEAR)');
 await alice.w.sync();
-for (const c of await alice.w.deposit('near', NEAR(0.2))) tx(await send(alice.acct, c));
+for (const c of await alice.w.deposit('near', NEAR(0.3))) tx(await send(alice.acct, c));
 await show();
 
-step('2. confidential ring: alice sends bob 0.05 NEAR (public: alice signed; asset, amount, recipient hidden)');
-tx(await send(alice.acct, await alice.w.transfer('near', NEAR(0.05), bob.w.keypair.address())));
+step('2. confidential ring: alice sends bob 0.1 NEAR (public: alice signed; asset, amount, recipient hidden)');
+tx(await send(alice.acct, await alice.w.transfer('near', NEAR(0.1), bob.w.keypair.address())));
 await show();
 
 step(`3. anonymous ring: bob withdraws 0.03 NEAR to his account via relayer ${relayerInfo.relayer} (bob never signs)`);
 const fee = BigInt(relayerInfo.minFee.near);
 tx(await relay(await bob.w.withdraw('near', NEAR(0.03), env.BOB, { relayer: relayerInfo.relayer, fee })));
+await show();
+
+// open ring: no relayer and no wallet. The proof is signed with a function-call key that is
+// published in open-ring/<network>.json; the fee pays storage and refunds the gas account.
+const open = JSON.parse(fs.readFileSync(env.NPR_OPEN ?? `open-ring/${NETWORK}.json`));
+step(`3b. open ring: bob withdraws 0.01 NEAR with a public key of ${open.account} (no relayer, bob never signs)`);
+tx(await sendOpen(pool.provider, open, await bob.w.withdraw('near', NEAR(0.01), env.BOB, { fee: OPEN_FEE })));
 await show();
 
 step('4. bob wraps 0.1 NEAR and deposits 0.1 wNEAR via ft_transfer_call');

@@ -1,0 +1,15 @@
+{
+  "note": "Public on purpose. These are function-call keys that can only call transact on the pool; they cannot move funds. See README, Open ring.",
+  "pool": "npr-pool-65673.testnet",
+  "account": "gas.npr-364072.testnet",
+  "keys": [
+    "ed25519:24XuaskPQr4TFZMbyrmFMp2ZcT2edexTgN4P8ufqK5LQjvbFcL5QTH6TWmqCqf3YtLYvRGzENDnPkLj7bST874Ep",
+    "ed25519:4xxfB8LTmYQpeEGLfoYFUcXYhoohcmpJQXxaZxoEcvURsmQdcEWsjojxZgbe4bcSHqVd6FYm6tHQWBonLotpPgCe",
+    "ed25519:cfb1JJ7E24bdLfG9JcNdqnz2G9kZAzz2QRmi9eLpsJacVUWpkzYtBcWjwdxde73yJhenGvQa91eswvqrGgf31BA",
+    "ed25519:482HQBT4BC5XrSBV4hgMGpyjQxi9w7KTzqkBCTz24QyxaEUuScc87pWb5ZF53PY3wte6Xh7o52eYGhcqJLidzD1T",
+    "ed25519:3y5rqgZEpToqU8d1rgbSEVZoXNmtxUGqKEVN4i3nCVR2Jx9xPBFmj7i9wXGVm7pPjh1kzkqHbrW9ZatqbK1nhsyL",
+    "ed25519:4PL3YA34BxhNEFRV1f5VVPNrY2Gwz7HZz6MVUHgV59YTGmTqyBEgA8s6YQG499ieEXr8QmYFhSd5sLUrvNKrJxZk",
+    "ed25519:FdaQ2ysb7v5H4YLL4qH3gVmYSAzDYEtdP3224QRb3f7g8tz3fG1pLBFWFTZtxyDjTM1koLdSpfmrPbNCoJVEZz8",
+    "ed25519:WVTUeL27baxDbodpBD8eqWGf988RiLvphxrWr47Vu2QoWsr9zLCzw6ZWMzpTAL6Dv6YKP87pgyWFt9kT7X7i6oz"
+  ]
+}

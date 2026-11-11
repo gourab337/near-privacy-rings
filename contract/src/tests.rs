@@ -219,3 +219,71 @@ fn failed_payout_recredited_over_cap_and_claimable_by_anyone() {
     assert_eq!(p.get_failed("carol.near".parse().unwrap(), NATIVE.into()).0, 0);
     assert_eq!(p.get_token(NATIVE.into()).unwrap().tvl.0, 10);
 }
+
+// ---- open ring: zero-deposit transactions, e.g. signed with a published function-call key
+
+const GAS_ACCOUNT: &str = "gas.near";
+fn open_pool(f: &Value) -> Pool {
+    let mut p = pool(u128::MAX);
+    let (a, e) = tx(&f["open"]["deposit"]);
+    ctx("carol.near", 5 * STORAGE_FEE + STORAGE_FEE);
+    p.transact(a, e);
+    p
+}
+
+/// The pool keeps STORAGE_FEE out of the fee and pays the rest to whoever submitted.
+#[test]
+fn open_ring_withdraw_pays_storage_and_caller_from_fee() {
+    let f = fx();
+    let mut p = open_pool(&f);
+    let (a, e) = tx(&f["open"]["withdraw"]);
+    assert_eq!(e.relayer, "");
+    ctx(GAS_ACCOUNT, 0);
+    p.transact(a, e);
+    // 0.05 in, 0.01 withdrawn, 0.02 fee
+    assert_eq!(p.get_token(NATIVE.into()).unwrap().tvl.0, 2 * STORAGE_FEE);
+    let sent: Vec<(String, u128)> = near_sdk::test_utils::get_created_receipts()
+        .iter()
+        .flat_map(|r| {
+            r.actions.iter().filter_map(move |act| match act {
+                near_sdk::mock::MockAction::Transfer { deposit, .. } => Some((r.receiver_id.to_string(), deposit.as_yoctonear())),
+                _ => None,
+            })
+        })
+        .collect();
+    assert!(sent.contains(&("carol.near".to_string(), STORAGE_FEE)), "{sent:?}");
+    assert!(sent.contains(&(GAS_ACCOUNT.to_string(), OPEN_MIN_FEE - STORAGE_FEE)), "{sent:?}");
+}
+
+#[test]
+#[should_panic(expected = "without a deposit")]
+fn open_ring_rejects_low_fee() {
+    let f = fx();
+    let mut p = open_pool(&f);
+    let (a, mut e) = tx(&f["open"]["withdraw"]);
+    e.fee = U128(OPEN_MIN_FEE - 1);
+    ctx(GAS_ACCOUNT, 0);
+    p.transact(a, e);
+}
+
+/// Free zero-value spam (review finding M1) must stay impossible without a deposit.
+#[test]
+#[should_panic(expected = "without a deposit")]
+fn open_ring_rejects_feeless_hidden_transfer() {
+    let f = fx();
+    let mut p = pool(1000);
+    deposit(&mut p, &f);
+    let (a, e) = tx(&f["transfer"]);
+    ctx(GAS_ACCOUNT, 0);
+    p.transact(a, e);
+}
+
+#[test]
+#[should_panic(expected = "without a deposit")]
+fn open_ring_rejects_deposits() {
+    let f = fx();
+    let mut p = pool(1000);
+    let (a, e) = tx(&f["deposit"]);
+    ctx(GAS_ACCOUNT, 0);
+    p.transact(a, e);
+}

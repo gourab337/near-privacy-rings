@@ -1,8 +1,9 @@
 # NEAR Privacy Rings
 
 A zero-knowledge shielded pool for NEAR. You can hold NEAR and NEP-141 tokens in
-encrypted balances, send them privately, withdraw them anonymously through a relayer,
-and swap two tokens atomically without revealing either side. Every state change is
+encrypted balances, send them privately, withdraw them anonymously, and swap two tokens
+atomically without revealing either side. Anonymous NEAR transactions need **no relayer**:
+they are signed with a key that is published in this repo (see [Open ring](#open-ring-anonymity-without-a-relayer)). Every state change is
 proven with Groth16 and verified on-chain by NEAR's `alt_bn128` host functions.
 No trusted hardware or permissioned validators are involved.
 
@@ -19,7 +20,8 @@ It is not a port of their code.
 |---|---|---|
 | Deposit | depositor account, token, amount | which note (and later spend) it becomes |
 | Confidential transfer (you submit) | your account submitted *a* transaction | token, amount, recipient |
-| Anonymous transfer / withdraw (relayer submits) | relayer account, fee and its token; for withdraw: recipient + amount | who spent, which notes |
+| Anonymous transfer / withdraw, open ring (NEAR; signed with a published key) | the shared gas account, a NEAR fee; for withdraw: recipient + amount | who spent, which notes |
+| Anonymous transfer / withdraw, relayer (any listed token) | relayer account, fee and its token; for withdraw: recipient + amount | who spent, which notes |
 | Private swap | that *a* swap happened | both tokens, both amounts, both parties (when relayed) |
 
 ## Try it
@@ -29,7 +31,8 @@ make install      # JS deps
 make test         # SDK tests, contract unit tests with real proofs, sandbox e2e with gas
 ```
 
-Testnet demo: deposit → confidential transfer → anonymous withdraw → wNEAR deposit → private swap.
+Testnet demo: deposit → confidential transfer → anonymous withdraw (relayer) → anonymous
+withdraw (open ring, no relayer) → wNEAR deposit → private swap.
 
 ```bash
 # relayer (terminal 1)
@@ -45,9 +48,48 @@ Measured gas: deposit and transfer about 63 Tgas, private swap about 123 Tgas
 for the two leaves and two nullifiers it adds.
 
 Web app: `cd app && npm ci && npm run dev`. Proofs are generated in the browser; a full
-anonymous withdraw, proof included, took about 12 s in our headless test.
-Anonymous actions go through the relayer, so sending, withdrawing and swapping need no
-wallet connection. Deposits and the confidential ring use NEAR Wallet Selector.
+anonymous withdraw through the open ring, proof included, took about 7 s in our headless test.
+Anonymous sends and withdrawals need no wallet connection. Deposits and the confidential
+ring use NEAR Wallet Selector.
+
+## Open ring: anonymity without a relayer
+
+Helius's design, like every shielded pool on Solana or Ethereum, needs a relayer for
+anonymity: somebody's account has to sign and pay for the transaction, so a third party
+does it for a fee. That party must be online, and it can refuse you.
+
+NEAR accounts can hold *function-call keys*: keys that may call only named methods on one
+contract and can never transfer or attach funds. The open ring uses them like this:
+
+1. A gas account (`gas.npr-364072.testnet` on testnet) holds a little NEAR and eight
+   function-call keys limited to `transact` on the pool.
+2. **The private halves of those keys are published** in [`open-ring/`](open-ring/testnet.json).
+   That is intended. Anyone can sign with them; nobody can do anything with them except
+   submit a proof to the pool.
+3. Your browser signs the anonymous transaction with one of those keys and sends it
+   straight to an RPC node. Everyone who does this looks the same on-chain.
+4. The transaction carries no deposit, so the contract takes its 0.01 NEAR storage fee out
+   of the proof's public fee (at least 0.02 NEAR) and pays the rest to the account that
+   paid the gas. A transaction burns about 0.0068 NEAR of gas, so the gas account refills
+   itself: in our testnet runs its balance went up after each use.
+
+Because the contract pays whoever submitted, anyone can also relay for the fee with their
+own account. No permission or registration is involved.
+
+What this does not solve, stated plainly:
+
+- **Spam can switch it off.** Anyone can sign failing transactions with the published keys
+  and burn the gas account's balance, at no cost to themselves. This cannot touch the pool:
+  the gas account is a separate account and holds only gas money. While it is empty, use
+  the relayer or the confidential ring.
+- **Shared keys collide.** Each key has one transaction counter. Two people using the same
+  key in the same second collide, and one retries with another key; a spammer can cause
+  this on purpose.
+- **NEAR notes only.** The fee has to be NEAR, because gas is paid in NEAR. Other tokens and
+  swaps still use the relayer.
+- **Not a new primitive.** NEAR linkdrops already share restricted keys. This applies the
+  same account feature to shielded-pool anonymity.
+- **Your RPC node still sees your IP address**, as a relayer would.
 
 ## How it works
 
@@ -62,7 +104,8 @@ wallet connection. Deposits and the confidential ring use NEAR Wallet Selector.
 - **Contract** (`contract/`). It verifies the proof, checks that the root is among the
   last 100 roots, records nullifiers, appends commitments and stores ciphertexts for
   wallet sync. NEAR is paid out via transfer, NEP-141 tokens via `ft_transfer`. A failed
-  payout is credited to the recipient, who can claim it (`claim_failed`).
+  payout is credited to the recipient, who can claim it (`claim_failed`). A `transact`
+  sent with no deposit is an open-ring transaction (see above).
 - **Swap.** Two ordinary transaction proofs settle in one call. Each commits, through
   `swap_leg`, to the exact note it must receive from the other, so neither half can be
   executed alone.
