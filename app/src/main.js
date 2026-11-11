@@ -111,7 +111,7 @@ async function sendAnonymous(token, build) {
   const routes = [];
   if (OPEN && token === 'near') {
     const { provider } = poolClient(CONTRACT, NETWORK, RPC);
-    routes.push({ opts: { fee: OPEN_FEE }, fee: OPEN_FEE, who: `A public key of <code>${OPEN.account}</code>, which anyone can use (no relayer),`, send: async (c) => [await sendOpen(provider, OPEN, c)] });
+    routes.push({ opts: { relayer: OPEN.account, fee: OPEN_FEE }, fee: OPEN_FEE, who: `A public key of <code>${OPEN.account}</code>, which anyone can use (no relayer),`, send: async (c) => [await sendOpen(provider, OPEN, c)] });
   }
   const f = minFee(token);
   if (f !== null) routes.push({ opts: { relayer: relayerInfo.relayer, fee: f }, fee: f, who: `Relayer <code>${relayerInfo.relayer}</code>`, send: relay });

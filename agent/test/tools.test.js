@@ -20,10 +20,11 @@ test('agent is paid privately, pays privately within its cap, and proves the pay
   };
   // the agent's only route is the open ring: NEAR transactions with a fee of at least 0.02 NEAR
   const submit = (call) => {
-    assert.ok(BigInt(call.args.ext_data.fee) >= toYocto('0.02') && call.args.ext_data.token === 'near');
+    const e = call.args.ext_data;
+    assert.ok(BigInt(e.fee) >= toYocto('0.02') && e.token === 'near' && e.relayer === 'gas.near');
     return apply(call);
   };
-  const { tools, wallet } = await createAgentTools({ key: 'ab'.repeat(31), maxPerPayment: '0.5', pool, submit });
+  const { tools, wallet } = await createAgentTools({ key: 'ab'.repeat(31), maxPerPayment: '0.5', maxTotal: '0.55', pool, submit, gasAccount: 'gas.near' });
   const call = (name, args = {}) => tools.find((t) => t.name === name).run(args);
 
   // a customer funds the agent with three payments, so its balance sits in three notes
@@ -49,6 +50,8 @@ test('agent is paid privately, pays privately within its cap, and proves the pay
   // 0.6 - merge fee 0.02 - 0.45 - fee 0.02
   assert.equal((await call('shielded_balance')).near, '0.110000');
 
-  await call('private_withdraw', { recipient: 'shop.near', amount_near: '0.05' });
-  assert.equal((await call('shielded_balance')).near, '0.040000');
+  // spent 0.49 (merge fee, 0.45, fee) of a 0.55 budget: 0.05 more, its fee and a possible merge would exceed it
+  await assert.rejects(() => call('private_withdraw', { recipient: 'shop.near', amount_near: '0.05' }), /total spending budget/);
+  await call('private_withdraw', { recipient: 'shop.near', amount_near: '0.01' });
+  assert.equal((await call('shielded_balance')).near, '0.080000');
 });

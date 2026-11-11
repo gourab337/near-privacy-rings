@@ -55,9 +55,11 @@ receipts, and a viewing key pasted into "Import key" opens a view-only wallet.
 
 ## Open ring: anonymity without a relayer
 
-Helius's design, like every shielded pool on Solana or Ethereum, needs a relayer for
-anonymity: somebody's account has to sign and pay for the transaction, so a third party
-does it for a fee. That party must be online, and it can refuse you.
+Helius's design on Solana needs a relayer for anonymity: somebody's account has to sign
+and pay for the transaction, so a third party does it for a fee. That party must be online,
+and it can refuse you. On Solana a fee-paying key can spend everything its account holds,
+so it cannot be shared. (Ethereum can get close with ERC-4337 paymasters, which still rely
+on bundlers.)
 
 NEAR accounts can hold *function-call keys*: keys that may call only named methods on one
 contract and can never transfer or attach funds. The open ring uses them like this:
@@ -70,12 +72,14 @@ contract and can never transfer or attach funds. The open ring uses them like th
 3. Your browser signs the anonymous transaction with one of those keys and sends it
    straight to an RPC node. Everyone who does this looks the same on-chain.
 4. The transaction carries no deposit, so the contract takes its 0.01 NEAR storage fee out
-   of the proof's public fee (at least 0.02 NEAR) and pays the rest to the account that
-   paid the gas. A transaction burns about 0.0068 NEAR of gas, so the gas account refills
-   itself: in our testnet runs its balance went up after each use.
-
-Because the contract pays whoever submitted, anyone can also relay for the fee with their
-own account. No permission or registration is involved.
+   of the proof's public fee (at least 0.02 NEAR) and pays the rest to the gas account.
+   A transaction burns about 0.0068 NEAR of gas, so the gas account refills itself: in our
+   testnet runs its balance went up after each use.
+5. The proof names the gas account as the fee's payee, and the contract only accepts a
+   zero-deposit transaction from the account it names. So nobody can copy a pending
+   transaction, submit it first and take the fee. (An earlier version paid whoever
+   submitted; an adversarial review found that front-running hole, and
+   `open_ring_cannot_be_front_run` now tests for it.)
 
 What this does not solve, stated plainly:
 
@@ -91,6 +95,8 @@ What this does not solve, stated plainly:
 - **Not a new primitive.** NEAR linkdrops already share restricted keys. This applies the
   same account feature to shielded-pool anonymity.
 - **Your RPC node still sees your IP address**, as a relayer would.
+- **Spam still costs nothing to send.** The front-running fix stops anyone profiting, not
+  anyone wasting the gas account's balance.
 
 ## Private payments for AI agents
 
@@ -103,8 +109,10 @@ agent needs **no NEAR account, no gas and no relayer**: its only secret is a shi
 
 - **MCP server** (`agent/mcp.js`): works with any MCP client. Tools: `shielded_address`,
   `shielded_balance`, `private_send`, `private_withdraw`, `verify_receipt`.
-- **Spending cap outside the model**: `NPR_MAX_PAYMENT` (NEAR per payment) is enforced by the
-  tool code, so a confused or prompt-injected model cannot exceed it.
+- **Spending limits outside the model**: `NPR_MAX_PAYMENT` (per payment) and `NPR_MAX_TOTAL`
+  (everything the process spends, fees included) are enforced by the tool code. A confused
+  or prompt-injected model can still make bad payments within those limits, but cannot go
+  past them. The total resets when the process restarts.
 - **Receipts**: every `private_send` returns a receipt the agent can hand to the payee or an
   auditor (see Disclosure below).
 - **NEAR AI Cloud demo** (`agent/demo.mjs`): a model hosted in a TEE on NEAR AI Cloud drives
@@ -134,9 +142,11 @@ The returned receipt verifies as valid on-chain.
 ```
 
 The payment is [this transaction](https://testnet.nearblocks.io/txns/GNK1kVmVD1YMU6kwRQWg42QnvNjUsCVrjg9CiuGU6UB8):
-signed by the shared gas account, with no trace of the agent. `provider_tee` means the
-reply was signed by the key of the TEE serving the model; the script verified each
-signature against the exact request and response bytes.
+signed by the shared gas account, with no trace of the agent. `provider_tee` is NEAR AI
+Cloud's label for a reply signed by the model's serving key; the script checked each
+signature against the exact request and response bytes. It did not verify the hardware
+attestation that ties that key to a TEE, so the check shows the replies are consistent with
+one signing key, not that a TEE produced them.
 
 Also tested on testnet through an MCP client: the agent was paid 0.1 NEAR privately, refused a
 0.06 NEAR payment (cap 0.05), paid 0.03 NEAR privately
@@ -152,7 +162,10 @@ and its receipt verified. Payments are NEAR only, since the open ring is.
 - **Payment receipt** (starts with `nprreceipt`). The sender of a private payment keeps the
   opening of the note they created. Anyone given the receipt can check against the chain
   (`verifyReceipt`) that a note of exactly that token and amount exists for that shielded
-  address. It reveals that one payment and nothing else.
+  address. It reveals that one payment and nothing else. It does not say who paid, so
+  whoever holds it can present it; treat it as proof that the payment happened.
+- Viewing keys cannot be revoked. Once shared, the holder can read every future note to
+  that address until you move to a new key.
 
 ## How it works
 
@@ -185,6 +198,18 @@ and its receipt verified. Payments are NEAR only, since the open ring is.
   this reason. Production will replace this key with a multi-party ceremony; the tooling and
   runbook are in [`ceremony/`](ceremony/README.md). `artifacts/dev` (testnet) has one
   throwaway contribution.
+- **Small anonymity set.** Privacy comes from the crowd. With few users, a deposit and a
+  later withdrawal can be linked by timing and amount. Wait, and use common amounts.
+- **Your RPC provider can link your notes.** The wallet asks the RPC whether each of your
+  notes is spent, so the provider can tie your notes to your IP address before you spend
+  them. Use your own node or Tor for strong privacy.
+- **Browser key storage.** The web app keeps your shielded key in this site's local
+  storage. GitHub Pages sites under one account (`gourab337.github.io`) share that storage,
+  so another page there could read it. Fine on testnet; for real funds, back the key up and
+  prefer a build served from its own domain.
+- **Storage fee margin.** Each proof adds about 900 bytes (0.009 NEAR at current prices)
+  and pays 0.01 NEAR. If storage costs rose above the fee, new transactions would fail
+  until the pool account is topped up.
 - **Upgradeability.** The owner can list tokens, set caps and pause. It cannot move user
   notes. The deployer account keeps its key, so it can redeploy the contract. That is
   disclosed here rather than hidden. Deposits are capped.

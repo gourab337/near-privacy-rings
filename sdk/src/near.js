@@ -44,6 +44,7 @@ export async function send(account, call) {
 /**
  * Open ring: submit a shielded call with one of the pool's published function-call keys.
  * No relayer and no wallet: `open` is { account, keys } from open-ring/<network>.json.
+ * The proof must have been built with `{ relayer: open.account, fee: OPEN_FEE }`.
  * The keys are shared by everyone, so a nonce can collide; then another key is tried.
  */
 export async function sendOpen(provider, open, call) {

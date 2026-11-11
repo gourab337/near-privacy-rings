@@ -69,7 +69,7 @@ await show();
 // published in open-ring/<network>.json; the fee pays storage and refunds the gas account.
 const open = JSON.parse(fs.readFileSync(env.NPR_OPEN ?? `open-ring/${NETWORK}.json`));
 step(`3b. open ring: bob withdraws 0.01 NEAR with a public key of ${open.account} (no relayer, bob never signs)`);
-tx(await sendOpen(pool.provider, open, await bob.w.withdraw('near', NEAR(0.01), env.BOB, { fee: OPEN_FEE })));
+tx(await sendOpen(pool.provider, open, await bob.w.withdraw('near', NEAR(0.01), env.BOB, { relayer: open.account, fee: OPEN_FEE })));
 await show();
 
 step('4. bob wraps 0.1 NEAR and deposits 0.1 wNEAR via ft_transfer_call');

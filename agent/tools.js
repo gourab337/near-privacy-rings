@@ -21,10 +21,12 @@ export const fromYocto = (y) => `${y / YOCTO}.${(y % YOCTO).toString().padStart(
  * @param {string} o.network        testnet | mainnet
  * @param {string} o.key            shielded private key (hex)
  * @param {string} [o.maxPerPayment] hard cap per payment in NEAR; the model cannot raise it
+ * @param {string} [o.maxTotal]      hard cap on everything this process spends, fees included
  * @param {object} [o.pool]         test hook: { contractId, view }
  * @param {Function} [o.submit]     test hook: (call) => txHash
+ * @param {string} [o.gasAccount]   test hook: the open ring's gas account
  */
-export async function createAgentTools({ network = 'testnet', key, maxPerPayment = '1', pool, submit }) {
+export async function createAgentTools({ network = 'testnet', key, maxPerPayment = '1', maxTotal = '1', pool, submit, gasAccount }) {
   await initCrypto();
   const set = network === 'mainnet' ? 'mainnet' : 'dev';
   const art = { wasm: `${ROOT}artifacts/${set}/transaction2x2.wasm`, zkey: `${ROOT}artifacts/${set}/transaction2x2.zkey` };
@@ -32,9 +34,14 @@ export async function createAgentTools({ network = 'testnet', key, maxPerPayment
     const open = JSON.parse(fs.readFileSync(`${ROOT}open-ring/${network}.json`));
     pool = poolClient(open.pool, network);
     submit = (call) => sendOpen(pool.provider, open, call);
+    gasAccount = open.account;
   }
+  // the proof names the gas account as the fee's payee, so a copied transaction pays nobody else
+  const fee = { relayer: gasAccount, fee: OPEN_FEE };
   const wallet = new ShieldedWallet(new Keypair(BigInt('0x' + key)), pool, art);
   const cap = toYocto(maxPerPayment);
+  const budget = toYocto(maxTotal);
+  let spent = 0n; // amounts and fees paid by this process
   const explorer = (h) => `https://${network === 'mainnet' ? '' : 'testnet.'}nearblocks.io/txns/${h}`;
 
   // builds a proof, merging notes first if the balance is split across more than two
@@ -42,17 +49,21 @@ export async function createAgentTools({ network = 'testnet', key, maxPerPayment
     const amount = toYocto(amountNear);
     if (amount === 0n) throw new Error('amount must be positive');
     if (amount > cap) throw new Error(`refused: ${amountNear} NEAR is above the per-payment cap of ${maxPerPayment} NEAR set by the operator`);
+    // worst case includes a merge before the payment
+    if (spent + amount + 2n * OPEN_FEE > budget) throw new Error(`refused: total spending budget of ${maxTotal} NEAR set by the operator would be exceeded (spent ${fromYocto(spent)})`);
     await wallet.sync();
     let call;
     try {
       call = await build(amount);
     } catch (e) {
       if (!/run merge first/.test(e.message)) throw e;
-      await submit(await wallet.merge('near', { fee: OPEN_FEE }));
+      await submit(await wallet.merge('near', fee));
+      spent += OPEN_FEE;
       await wallet.sync();
       call = await build(amount);
     }
     const tx = await submit(call);
+    spent += amount + OPEN_FEE;
     return { tx, explorer: explorer(tx), fee_near: fromYocto(OPEN_FEE), receipt: call.receipt };
   }
 
@@ -69,20 +80,20 @@ export async function createAgentTools({ network = 'testnet', key, maxPerPayment
       inputSchema: { type: 'object', properties: {} },
       run: async () => {
         await wallet.sync();
-        return { near: fromYocto(wallet.balance('near')), fee_per_payment_near: fromYocto(OPEN_FEE), max_per_payment_near: maxPerPayment };
+        return { near: fromYocto(wallet.balance('near')), fee_per_payment_near: fromYocto(OPEN_FEE), max_per_payment_near: maxPerPayment, budget_left_near: fromYocto(budget - spent) };
       },
     },
     {
       name: 'private_send',
       description: 'Pay NEAR privately to a shielded address (starts with "npr"). The chain shows neither the payer, the recipient nor the amount. Returns a receipt that proves this one payment to whoever you show it to.',
       inputSchema: { type: 'object', required: ['to', 'amount_near'], properties: { to: { type: 'string', description: 'shielded address' }, amount_near: { type: 'string', description: 'decimal NEAR, e.g. "0.05"' } } },
-      run: ({ to, amount_near }) => pay(amount_near, (a) => wallet.transfer('near', a, to, { fee: OPEN_FEE })),
+      run: ({ to, amount_near }) => pay(amount_near, (a) => wallet.transfer('near', a, to, fee)),
     },
     {
       name: 'private_withdraw',
       description: 'Pay NEAR from the private balance to a normal NEAR account. The chain shows the recipient and the amount, not who paid.',
       inputSchema: { type: 'object', required: ['recipient', 'amount_near'], properties: { recipient: { type: 'string', description: 'NEAR account id' }, amount_near: { type: 'string' } } },
-      run: ({ recipient, amount_near }) => pay(amount_near, (a) => wallet.withdraw('near', a, recipient, { fee: OPEN_FEE })),
+      run: ({ recipient, amount_near }) => pay(amount_near, (a) => wallet.withdraw('near', a, recipient, fee)),
     },
     {
       name: 'verify_receipt',

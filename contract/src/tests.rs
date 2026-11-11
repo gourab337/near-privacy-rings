@@ -237,7 +237,7 @@ fn open_ring_withdraw_pays_storage_and_caller_from_fee() {
     let f = fx();
     let mut p = open_pool(&f);
     let (a, e) = tx(&f["open"]["withdraw"]);
-    assert_eq!(e.relayer, "");
+    assert_eq!(e.relayer, GAS_ACCOUNT);
     ctx(GAS_ACCOUNT, 0);
     p.transact(a, e);
     // 0.05 in, 0.01 withdrawn, 0.02 fee
@@ -253,6 +253,17 @@ fn open_ring_withdraw_pays_storage_and_caller_from_fee() {
         .collect();
     assert!(sent.contains(&("carol.near".to_string(), STORAGE_FEE)), "{sent:?}");
     assert!(sent.contains(&(GAS_ACCOUNT.to_string(), OPEN_MIN_FEE - STORAGE_FEE)), "{sent:?}");
+}
+
+/// Adversarial review finding: a copied open-ring transaction must not pay a front-runner.
+#[test]
+#[should_panic(expected = "must name the submitting account as relayer")]
+fn open_ring_cannot_be_front_run() {
+    let f = fx();
+    let mut p = open_pool(&f);
+    let (a, e) = tx(&f["open"]["withdraw"]);
+    ctx("frontrunner.near", 0);
+    p.transact(a, e);
 }
 
 #[test]

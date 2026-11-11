@@ -17,7 +17,7 @@ if (!KEY) throw new Error('set NEAR_AI_API_KEY (https://cloud.near.ai, or the ha
 const auth = { authorization: `Bearer ${KEY}` };
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
 
-const { tools } = await createAgentTools({ network: process.env.NPR_NETWORK ?? 'testnet', key: loadAgentKey(), maxPerPayment: process.env.NPR_MAX_PAYMENT ?? '0.05' });
+const { tools } = await createAgentTools({ network: process.env.NPR_NETWORK ?? 'testnet', key: loadAgentKey(), maxPerPayment: process.env.NPR_MAX_PAYMENT ?? '0.05', maxTotal: process.env.NPR_MAX_TOTAL ?? '0.1' });
 const toolSpecs = tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } }));
 
 /** Checks the signature NEAR AI Cloud publishes for one completion. Returns a one-line verdict. */
