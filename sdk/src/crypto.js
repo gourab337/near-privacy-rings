@@ -50,6 +50,23 @@ export class Keypair {
   address() {
     return 'npr' + toBytes32BE(this.pubKey).toString('hex') + Buffer.from(this.view.publicKey).toString('hex');
   }
+  /**
+   * Read-only viewing key for an auditor: pubKey (32B) || view secret key (32B), hex with
+   * "nprview" prefix. It decrypts every note sent to this address. It cannot spend, and it
+   * cannot tell which notes were later spent (nullifiers need the spending key).
+   */
+  viewingKey() {
+    return 'nprview' + toBytes32BE(this.pubKey).toString('hex') + Buffer.from(this.view.secretKey).toString('hex');
+  }
+  /** A keypair that can only decrypt: `privKey` is null. */
+  static fromViewingKey(vk) {
+    if (!/^nprview[0-9a-f]{128}$/.test(vk)) throw new Error('invalid viewing key');
+    const k = Object.create(Keypair.prototype);
+    k.privKey = null;
+    k.pubKey = BigInt('0x' + vk.slice(7, 71));
+    k.view = nacl.box.keyPair.fromSecretKey(new Uint8Array(Buffer.from(vk.slice(71), 'hex')));
+    return k;
+  }
   static parseAddress(addr) {
     if (!/^npr[0-9a-f]{128}$/.test(addr)) throw new Error('invalid shielded address');
     return {
@@ -74,7 +91,7 @@ export class Note {
     return poseidon([this.amount, this.pubKey, this.blinding, this.asset]);
   }
   nullifier() {
-    if (!this.keypair) throw new Error('cannot nullify a note without its private key');
+    if (!this.keypair?.privKey) throw new Error('cannot nullify a note without its private key');
     // dummy inputs (amount 0) are never inserted; any index gives a unique nullifier
     const idx = BigInt(this.index ?? 0);
     const cm = this.commitment();

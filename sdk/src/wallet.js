@@ -22,7 +22,7 @@ export class ShieldedWallet {
     this.pool = pool;
     this.artifacts = artifacts;
     this.tree = new MerkleTree();
-    this.notes = []; // unspent owned notes
+    this.notes = []; // unspent owned notes (view-only wallets: every note ever received)
     this.expected = []; // notes a counterparty promised us (swaps): matched by commitment, not ciphertext
     this.synced = 0;
   }
@@ -48,9 +48,15 @@ export class ShieldedWallet {
       }
       if (leaves.length < PAGE) break;
     }
+    if (this.viewOnly) return this; // spent status needs the spending key
     const spent = await Promise.all(this.notes.map((n) => this.pool.view('is_spent', { nullifier: hex(n.nullifier()) })));
     this.notes = this.notes.filter((_, i) => !spent[i]);
     return this;
+  }
+
+  /** True for a wallet built from `Keypair.fromViewingKey`: it sees incoming notes, cannot spend. */
+  get viewOnly() {
+    return this.keypair.privKey === null;
   }
 
   balance(token) {
@@ -101,7 +107,10 @@ export class ShieldedWallet {
       new Note({ amount: change, keypair: this.keypair, asset }),
     ];
     outputs[0].viewPk = to.viewPk;
-    return this.#tx(await this.#prove({ inputs, outputs, asset, token: fee > 0n ? token : '', relayer, fee }));
+    const call = this.#tx(await this.#prove({ inputs, outputs, asset, token: fee > 0n ? token : '', relayer, fee }));
+    // kept by the sender, never sent to the chain: lets them prove this one payment later
+    call.receipt = encodeReceipt({ token, amount, to: toAddress, blinding: outputs[0].blinding });
+    return call;
   }
 
   /** Shielded -> public account. Amount, asset and recipient are public. */
@@ -207,6 +216,29 @@ export class ShieldedWallet {
 
   #tx({ args, ext }) {
     return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: STORAGE_FEE };
+  }
+}
+
+// ---------------------------------------------------------------- payment receipts
+// Selective disclosure of one payment: the opening of the note the sender created.
+// Anyone holding it can check that the pool contains a note of exactly this token and
+// amount for this address. Nothing else about the sender or recipient is revealed.
+
+export function encodeReceipt({ token, amount, to, blinding }) {
+  return 'nprreceipt' + Buffer.from(JSON.stringify({ token, amount: amount.toString(), to, blinding: blinding.toString() })).toString('base64url');
+}
+
+/** Returns { valid, index, token, amount, to }. `valid` means the note is in the pool at `index`. */
+export async function verifyReceipt(pool, receipt) {
+  if (!receipt.startsWith('nprreceipt')) throw new Error('invalid receipt');
+  const r = JSON.parse(Buffer.from(receipt.slice(10), 'base64url').toString());
+  const note = new Note({ amount: BigInt(r.amount), pubKey: Keypair.parseAddress(r.to).pubKey, blinding: BigInt(r.blinding), asset: assetId(r.token) });
+  const cm = hex(note.commitment());
+  for (let from = 0; ; from += PAGE) {
+    const leaves = await pool.view('get_leaves', { from_index: from, limit: PAGE });
+    const i = leaves.findIndex((l) => l.commitment === cm);
+    if (i >= 0) return { valid: true, index: from + i, token: r.token, amount: BigInt(r.amount), to: r.to };
+    if (leaves.length < PAGE) return { valid: false, index: -1, token: r.token, amount: BigInt(r.amount), to: r.to };
   }
 }
 
