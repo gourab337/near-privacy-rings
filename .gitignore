@@ -5,3 +5,4 @@ contract/target/
 .env
 *.log
 .DS_Store
+app/dist/
