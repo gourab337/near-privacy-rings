@@ -11,6 +11,10 @@ It is inspired by Helius's [Solana Privacy Rings](https://github.com/helius-labs
 (launched on Solana mainnet on 2026-11-10). This repo is an independent NEAR implementation.
 It is not a port of their code.
 
+**Try it:** https://gourab337.github.io/near-privacy-rings/ — opens with a pre-funded
+testnet demo wallet; no wallet or setup needed. **Demo video (2 min, narrated):**
+[`media/demo.mp4`](media/demo.mp4).
+
 > **Status:** working end-to-end on NEAR testnet. **Unaudited.** Mainnet deployment
 > is pending, with low deposit caps. See [Security](#security) before you put in funds.
 
@@ -52,6 +56,26 @@ anonymous withdraw through the open ring, proof included, took about 7 s in our 
 Anonymous sends and withdrawals need no wallet connection. Deposits and the confidential
 ring use NEAR Wallet Selector. The Disclose tab shows your viewing key, checks payment
 receipts, and a viewing key pasted into "Import key" opens a view-only wallet.
+
+## Try the demo
+
+Open https://gourab337.github.io/near-privacy-rings/. Do this, and see that:
+
+1. The page picks a pre-funded **demo wallet** (0.5 testnet NEAR, private). No wallet connection.
+2. **Send → Alice → 0.05 NEAR → Send privately.** About 8 seconds later the payment appears in
+   the **Ring explorer**.
+3. **Public** tab: the transaction read back from the chain. Sender, recipient and amount are
+   hidden; it was signed by the shared gas account.
+4. **Alice** tab: the page decrypts the payment with Alice's key, as her wallet would. She sees
+   0.05 NEAR, and cannot tell who sent it.
+5. **Withdraw → Bob → 0.05 NEAR.** The Public tab now shows Bob's account and the amount, but
+   not whose balance paid.
+6. **Prove** tab: paste the receipt from step 2 (in the explorer's **You** tab) and check it.
+
+The demo keys (sessions, Alice, Bob) are published on purpose in
+[`demo/testnet.json`](demo/testnet.json), seeded by `scripts/seed-demo.mjs`. They hold
+testnet NEAR only, and anyone can spend them. There is no mainnet demo wallet.
+"Start new session" picks another demo wallet.
 
 ## Open ring: anonymity without a relayer
 

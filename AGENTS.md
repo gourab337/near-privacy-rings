@@ -45,6 +45,12 @@ them is the feature: anyone can submit an anonymous transaction with them, and t
 move funds. Check on-chain: `near account list-keys gas.npr-364072.testnet network-config testnet now`.
 README.md, "Open ring", explains the design and its limits.
 
+## About the keys in `demo/`
+
+`demo/testnet.json` holds shielded keys for the web app's demo mode: pre-funded testnet
+sessions, plus Alice and Bob. They are published on purpose, so a visitor starts with a
+balance. They hold testnet NEAR only.
+
 ## What is not claimed
 
 - `agent/demo.mjs` checks the signature on each model reply. It does not verify the
