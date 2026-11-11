@@ -10,7 +10,7 @@
 //! * anonymous    — a relayer submits the same proof and is paid a public `fee`.
 //! * swap         — two proofs settle atomically; each commits (via `swap_leg`) to the
 //!   note it must receive from the other.
-use near_sdk::json_types::{Base64VecU8, I128, U128};
+use near_sdk::json_types::{Base64VecU8, I128, U128, U64};
 use near_sdk::store::{LookupMap, LookupSet, Vector};
 use near_sdk::{
     borsh, env, ext_contract, log, near, require, AccountId, BorshStorageKey, Gas, NearToken,
@@ -28,6 +28,9 @@ use tree::Tree;
 
 pub const NATIVE: &str = "near";
 pub const ENCRYPTED_OUTPUT_LEN: usize = 152; // eph pk 32 + nonce 24 + box(80) 96
+/// Charged per proof (leg) to pay for the storage it adds (2 leaves + 2 nullifiers ~ 0.007 NEAR),
+/// so nobody can fill the pool's storage or tree for free.
+pub const STORAGE_FEE: u128 = 10_000_000_000_000_000_000_000; // 0.01 NEAR
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_ON_PAYOUT: Gas = Gas::from_tgas(10);
 
@@ -40,6 +43,7 @@ enum Key {
     Leaves,
     Tokens,
     Failed,
+    StorageCredit,
 }
 
 #[near(serializers = [borsh, json])]
@@ -82,6 +86,8 @@ pub struct ExtData {
     pub encrypted_output2: Base64VecU8,
     pub token: String,
     pub swap_leg: String,
+    /// Last block height at which this proof may settle (0 = no limit; swaps require one).
+    pub valid_until: U64,
 }
 
 #[derive(near_sdk::borsh::BorshSerialize)]
@@ -95,6 +101,7 @@ struct ExtDataBorsh<'a> {
     encrypted_output2: &'a [u8],
     token: &'a str,
     swap_leg: F32,
+    valid_until: u64,
 }
 
 impl ExtData {
@@ -108,6 +115,7 @@ impl ExtData {
             encrypted_output2: &self.encrypted_output2.0,
             token: &self.token,
             swap_leg: parse(&self.swap_leg),
+            valid_until: self.valid_until.0,
         };
         sha256_field(&borsh::to_vec(&b).unwrap())
     }
@@ -136,6 +144,8 @@ pub struct Pool {
     tokens: LookupMap<String, TokenState>,
     /// payouts whose transfer failed, claimable by the recipient: (account, token) -> amount
     failed: LookupMap<(AccountId, String), U128>,
+    /// NEAR prepaid for storage by NEP-141 depositors (ft_transfer_call cannot attach NEAR)
+    storage_credit: LookupMap<AccountId, u128>,
 }
 
 #[near]
@@ -150,36 +160,52 @@ impl Pool {
             leaves: Vector::new(Key::Leaves),
             tokens: LookupMap::new(Key::Tokens),
             failed: LookupMap::new(Key::Failed),
+            storage_credit: LookupMap::new(Key::StorageCredit),
         }
     }
 
     // ------------------------------------------------------------------ user
 
-    /// Deposit native NEAR (attach exactly `ext_amount`), transfer, or withdraw.
+    /// Deposit native NEAR, transfer, or withdraw. Attach STORAGE_FEE, plus `ext_amount`
+    /// for a native deposit.
     #[payable]
     pub fn transact(&mut self, args: TxArgs, ext_data: ExtData) {
         let attached = env::attached_deposit().as_yoctonear();
         let ext = ext_data.ext_amount.0;
-        if ext > 0 {
+        let value = if ext > 0 {
             require!(ext_data.token == NATIVE, "NEP-141 deposits go through ft_transfer_call");
-            require!(attached == ext as u128, "attached deposit must equal ext_amount");
+            ext as u128
         } else {
-            require!(attached == 0, "no deposit expected");
-        }
+            0
+        };
+        require!(attached == value + STORAGE_FEE, "attach ext_amount (native deposits) + STORAGE_FEE (0.01 NEAR)");
         self.process(&args, &ext_data);
+    }
+
+    /// Prepay storage for NEP-141 deposits (one STORAGE_FEE per deposit).
+    #[payable]
+    pub fn prepay_storage(&mut self, account_id: Option<AccountId>) -> U128 {
+        let who = account_id.unwrap_or_else(env::predecessor_account_id);
+        let credit = self.storage_credit.get(&who).copied().unwrap_or(0) + env::attached_deposit().as_yoctonear();
+        self.storage_credit.insert(who, credit);
+        U128(credit)
     }
 
     /// NEP-141 deposit: `ft_transfer_call(pool, amount, msg = {"args":..,"ext_data":..})`.
     /// Any panic here makes the token contract refund the full amount.
     pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128> {
-        let _ = sender_id;
         #[near(serializers = [json])]
         struct Msg {
             args: TxArgs,
             ext_data: ExtData,
         }
         let m: Msg = near_sdk::serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str("invalid msg"));
-        require!(m.ext_data.token == env::predecessor_account_id().as_str(), "token mismatch");
+        let token = env::predecessor_account_id();
+        require!(token.as_str() != NATIVE, "native NEAR is deposited with transact");
+        require!(m.ext_data.token == token.as_str(), "token mismatch");
+        let credit = self.storage_credit.get(&sender_id).copied().unwrap_or(0);
+        require!(credit >= STORAGE_FEE, "prepay_storage first (0.01 NEAR per deposit)");
+        self.storage_credit.insert(sender_id, credit - STORAGE_FEE);
         require!(m.ext_data.ext_amount.0 > 0 && m.ext_data.ext_amount.0 as u128 == amount.0, "amount mismatch");
         self.process(&m.args, &m.ext_data);
         PromiseOrValue::Value(U128(0))
@@ -187,9 +213,14 @@ impl Pool {
 
     /// Atomic private swap: both legs are hidden-asset transfers, and each leg's
     /// `swap_leg` must be one of the other leg's output commitments.
+    /// Attach 2 * STORAGE_FEE. Both legs must carry a `valid_until` so neither side
+    /// can hold the other's signed leg as a free option.
+    #[payable]
     pub fn swap(&mut self, leg_a: TxArgs, ext_a: ExtData, leg_b: TxArgs, ext_b: ExtData) {
         require!(!self.paused, "paused");
+        require!(env::attached_deposit().as_yoctonear() == 2 * STORAGE_FEE, "attach 2 * STORAGE_FEE (0.02 NEAR)");
         for (a, e) in [(&leg_a, &ext_a), (&leg_b, &ext_b)] {
+            require!(e.valid_until.0 != 0, "swap legs must expire");
             require!(e.ext_amount.0 == 0 && e.fee.0 == 0, "swap legs move no public value");
             require!(parse(&a.public_asset) == [0u8; 32], "swap legs must hide the asset");
         }
@@ -205,8 +236,9 @@ impl Pool {
     }
 
     /// Re-try a payout whose transfer failed (e.g. recipient not registered with the token).
-    pub fn claim_failed(&mut self, token: String) -> Promise {
-        let who = env::predecessor_account_id();
+    /// Anyone may trigger it; funds only ever go to `account_id`.
+    pub fn claim_failed(&mut self, account_id: AccountId, token: String) -> Promise {
+        let who = account_id;
         let key = (who.clone(), token.clone());
         let amount = self.failed.remove(&key).unwrap_or_else(|| env::panic_str("nothing to claim")).0;
         self.debit(&token, amount);
@@ -237,6 +269,9 @@ impl Pool {
     }
     pub fn get_failed(&self, account_id: AccountId, token: String) -> U128 {
         self.failed.get(&(account_id, token)).copied().unwrap_or(U128(0))
+    }
+    pub fn get_storage_credit(&self, account_id: AccountId) -> U128 {
+        U128(self.storage_credit.get(&account_id).copied().unwrap_or(0))
     }
     pub fn get_owner(&self) -> AccountId {
         self.owner.clone()
@@ -272,8 +307,9 @@ impl Pool {
     pub fn on_payout(&mut self, token: String, to: AccountId, amount: U128) {
         // transfers return no value; only an explicit failure means the funds came back
         if matches!(env::promise_result_checked(0, 0), Err(PromiseError::Failed)) {
-            // funds came back to the pool; keep them owed to the recipient
-            self.credit(&token, amount.0);
+            // funds came back to the pool; keep them owed to the recipient. No cap check:
+            // these funds were already in the pool, and failing here would lose them.
+            self.credit(&token, amount.0, false);
             let key = (to.clone(), token.clone());
             let prev = self.failed.get(&key).map(|v| v.0).unwrap_or(0);
             self.failed.insert(key, U128(prev + amount.0));
@@ -295,7 +331,7 @@ impl Pool {
         let fee = ext.fee.0;
         if e > 0 {
             require!(fee == 0, "deposits carry no fee");
-            self.credit(&ext.token, e as u128);
+            self.credit(&ext.token, e as u128, true);
         }
         if e < 0 {
             let amount = e.unsigned_abs();
@@ -331,6 +367,7 @@ impl Pool {
             ext.encrypted_output1.0.len() == ENCRYPTED_OUTPUT_LEN && ext.encrypted_output2.0.len() == ENCRYPTED_OUTPUT_LEN,
             "bad encrypted output length"
         );
+        require!(ext.valid_until.0 == 0 || env::block_height() <= ext.valid_until.0, "proof expired");
         let swap_leg = parse(&ext.swap_leg);
         require!(is_swap == (swap_leg != [0u8; 32]), "swap_leg only allowed in swap");
 
@@ -364,10 +401,10 @@ impl Pool {
         );
     }
 
-    fn credit(&mut self, token: &str, amount: u128) {
+    fn credit(&mut self, token: &str, amount: u128, enforce_cap: bool) {
         let t = self.tokens.get_mut(token).unwrap_or_else(|| env::panic_str("token not supported"));
         let tvl = t.tvl.0.checked_add(amount).unwrap_or_else(|| env::panic_str("overflow"));
-        require!(tvl <= t.cap.0, "deposit cap reached");
+        require!(!enforce_cap || tvl <= t.cap.0, "deposit cap reached");
         t.tvl = U128(tvl);
     }
 

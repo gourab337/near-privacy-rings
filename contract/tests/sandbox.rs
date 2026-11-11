@@ -4,6 +4,7 @@ use near_workspaces::types::NearToken;
 use serde_json::{json, Value};
 
 const WASM: &str = "target/near/near_privacy_rings.wasm";
+const STORAGE_FEE: u128 = 10_000_000_000_000_000_000_000;
 
 #[tokio::test]
 async fn deposit_and_private_transfer_on_sandbox() -> anyhow_free::Result {
@@ -19,8 +20,8 @@ async fn deposit_and_private_transfer_on_sandbox() -> anyhow_free::Result {
     let user = worker.dev_create_account().await?;
     let dep = user
         .call(pool.id(), "transact")
-        .args_json(json!({ "args": f["deposit"]["args"], "ext_data": f["deposit"]["ext_data"] }))
-        .deposit(NearToken::from_yoctonear(10))
+        .args_json(&f["deposit"])
+        .deposit(NearToken::from_yoctonear(10 + STORAGE_FEE))
         .max_gas()
         .transact()
         .await?;
@@ -31,7 +32,8 @@ async fn deposit_and_private_transfer_on_sandbox() -> anyhow_free::Result {
 
     let tr = user
         .call(pool.id(), "transact")
-        .args_json(json!({ "args": f["transfer"]["args"], "ext_data": f["transfer"]["ext_data"] }))
+        .args_json(&f["transfer"])
+        .deposit(NearToken::from_yoctonear(STORAGE_FEE))
         .max_gas()
         .transact()
         .await?;

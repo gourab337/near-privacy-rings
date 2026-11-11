@@ -1,10 +1,12 @@
 // Shielded wallet: syncs notes from the pool contract and builds proven transactions.
 // Transport-agnostic: `pool` needs only `view(method, args)`; built transactions are
 // returned as { method, args, deposit } (or an ft_transfer_call spec) for any signer.
-import { Keypair, MerkleTree, Note, assetId } from './crypto.js';
+import { Buffer, Keypair, MerkleTree, Note, assetId } from './crypto.js';
 import { buildProof } from './prover.js';
 
 export const NATIVE = 'near';
+/** Attached to every proof (leg) for the storage it adds; see contract STORAGE_FEE. */
+export const STORAGE_FEE = 10n ** 22n; // 0.01 NEAR
 const PAGE = 200;
 
 export class ShieldedWallet {
@@ -19,6 +21,7 @@ export class ShieldedWallet {
     this.artifacts = artifacts;
     this.tree = new MerkleTree();
     this.notes = []; // unspent owned notes
+    this.expected = []; // notes a counterparty promised us (swaps): matched by commitment, not ciphertext
     this.synced = 0;
   }
 
@@ -30,9 +33,16 @@ export class ShieldedWallet {
         const index = this.synced++;
         const cm = BigInt('0x' + leaf.commitment);
         this.tree.insert(cm);
-        const note = Note.decrypt(this.keypair, Buffer.from(leaf.encrypted_output, 'base64'), index);
+        let note = Note.decrypt(this.keypair, Buffer.from(leaf.encrypted_output, 'base64'), index);
         // ignore ciphertexts that don't open to the committed note (spoofed or not ours)
-        if (note && note.amount > 0n && note.commitment() === cm) this.notes.push(note);
+        if (!(note && note.amount > 0n && note.commitment() === cm)) note = null;
+        const ei = this.expected.findIndex((e) => e.commitment() === cm);
+        if (ei >= 0) {
+          note = this.expected[ei];
+          note.index = index;
+          this.expected.splice(ei, 1);
+        }
+        if (note) this.notes.push(note);
       }
       if (leaves.length < PAGE) break;
     }
@@ -52,19 +62,25 @@ export class ShieldedWallet {
 
   // ---------------------------------------------------------------- builders
 
-  /** Public -> shielded. Native NEAR: call `transact` with deposit; NEP-141: ft_transfer_call. */
+  /**
+   * Public -> shielded. Returns the calls to sign, in order.
+   * Native NEAR: one `transact` (amount + storage fee). NEP-141: `prepay_storage`, then `ft_transfer_call`.
+   */
   async deposit(token, amount) {
     amount = BigInt(amount);
     const asset = assetId(token);
     const out = new Note({ amount, keypair: this.keypair, asset });
     const { args, ext } = await this.#prove({ inputs: [], outputs: [out], asset, token, extAmount: amount });
-    if (token === NATIVE) return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: amount };
-    return {
-      receiverId: token,
-      method: 'ft_transfer_call',
-      args: { receiver_id: this.pool.contractId, amount: amount.toString(), msg: JSON.stringify({ args, ext_data: ext }) },
-      deposit: 1n,
-    };
+    if (token === NATIVE) return [{ receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: amount + STORAGE_FEE }];
+    return [
+      { receiverId: this.pool.contractId, method: 'prepay_storage', args: {}, deposit: STORAGE_FEE },
+      {
+        receiverId: token,
+        method: 'ft_transfer_call',
+        args: { receiver_id: this.pool.contractId, amount: amount.toString(), msg: JSON.stringify({ args, ext_data: ext }) },
+        deposit: 1n,
+      },
+    ];
   }
 
   /**
@@ -106,14 +122,19 @@ export class ShieldedWallet {
 
   // ---------------------------------------------------------------- swap (P2P, atomic)
 
-  /** Maker: describe the note we want to receive. Share the returned offer with a taker. */
-  createOffer(giveToken, giveAmount, wantToken, wantAmount) {
+  /**
+   * Maker: describe the note we want to receive. Share the returned offer with a taker.
+   * `validUntil` (block height) bounds both legs, so neither side holds a free option.
+   */
+  createOffer(giveToken, giveAmount, wantToken, wantAmount, { validUntil }) {
     const want = new Note({ amount: BigInt(wantAmount), keypair: this.keypair, asset: assetId(wantToken) });
-    this.pendingOffer = { want, giveToken, giveAmount: BigInt(giveAmount) };
+    this.pendingOffer = { want, giveToken, giveAmount: BigInt(giveAmount), validUntil: BigInt(validUntil) };
+    this.expected.push(want);
     return {
       give: { token: giveToken, amount: String(giveAmount) },
       want: { token: wantToken, amount: String(wantAmount), blinding: want.blinding.toString() },
       makerAddress: this.keypair.address(),
+      validUntil: String(validUntil),
     };
   }
 
@@ -126,25 +147,26 @@ export class ShieldedWallet {
     const receive = new Note({ amount: BigInt(offer.give.amount), keypair: this.keypair, asset: assetId(offer.give.token) });
     const inputs = this.#select(payAsset, pay.amount);
     const change = new Note({ amount: sum(inputs) - pay.amount, keypair: this.keypair, asset: payAsset });
-    const leg = await this.#prove({ inputs, outputs: [pay, change], asset: payAsset, swapLeg: receive.commitment() });
+    const leg = await this.#prove({ inputs, outputs: [pay, change], asset: payAsset, swapLeg: receive.commitment(), validUntil: BigInt(offer.validUntil) });
+    this.expected.push(receive);
     return { leg, takerReceive: { amount: receive.amount.toString(), blinding: receive.blinding.toString(), address: this.keypair.address() } };
   }
 
   /** Maker: prove our leg against the taker's, and return the atomic `swap` call. */
   async completeOffer(takerResponse) {
-    const { want, giveToken, giveAmount } = this.pendingOffer;
+    const { want, giveToken, giveAmount, validUntil } = this.pendingOffer;
     const taker = Keypair.parseAddress(takerResponse.takerReceive.address);
     const giveAsset = assetId(giveToken);
     const pay = new Note({ amount: giveAmount, pubKey: taker.pubKey, blinding: BigInt(takerResponse.takerReceive.blinding), asset: giveAsset });
     pay.viewPk = taker.viewPk;
     const inputs = this.#select(giveAsset, giveAmount);
     const change = new Note({ amount: sum(inputs) - giveAmount, keypair: this.keypair, asset: giveAsset });
-    const mine = await this.#prove({ inputs, outputs: [pay, change], asset: giveAsset, swapLeg: want.commitment() });
+    const mine = await this.#prove({ inputs, outputs: [pay, change], asset: giveAsset, swapLeg: want.commitment(), validUntil });
     return {
       receiverId: this.pool.contractId,
       method: 'swap',
       args: { leg_a: mine.args, ext_a: mine.ext, leg_b: takerResponse.leg.args, ext_b: takerResponse.leg.ext },
-      deposit: 0n,
+      deposit: 2n * STORAGE_FEE,
     };
   }
 
@@ -163,18 +185,26 @@ export class ShieldedWallet {
     return picked;
   }
 
-  async #prove({ inputs, outputs, asset, token = '', recipient = '', extAmount = 0n, relayer = '', fee = 0n, swapLeg = 0n }) {
+  /** Serializable copy of expected notes, for apps to persist across reloads. */
+  expectedState() {
+    return this.expected.map((n) => ({ amount: n.amount.toString(), blinding: n.blinding.toString(), asset: n.asset.toString() }));
+  }
+  restoreExpected(state = []) {
+    this.expected = state.map((e) => new Note({ amount: BigInt(e.amount), blinding: BigInt(e.blinding), asset: BigInt(e.asset), keypair: this.keypair }));
+  }
+
+  async #prove({ inputs, outputs, asset, token = '', recipient = '', extAmount = 0n, relayer = '', fee = 0n, swapLeg = 0n, validUntil = 0n }) {
     const pad = [...outputs];
     while (pad.length < 2) pad.push(new Note({ amount: 0n, keypair: this.keypair, asset }));
     const enc = pad.map((n) => n.encrypt(n.viewPk ?? this.keypair.view.publicKey));
-    const ext = { recipient, extAmount, relayer, fee, encryptedOutput1: enc[0], encryptedOutput2: enc[1], token, swapLeg };
+    const ext = { recipient, extAmount, relayer, fee, encryptedOutput1: enc[0], encryptedOutput2: enc[1], token, swapLeg, validUntil };
     const moves = extAmount !== 0n || fee !== 0n;
     const r = await buildProof({ tree: this.tree, inputs, outputs: pad, asset, ext, publicAsset: moves ? asset : 0n, artifacts: this.artifacts, changeKeypair: this.keypair });
     return { args: r.args, ext: extToJson(ext) };
   }
 
   #tx({ args, ext }) {
-    return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: 0n };
+    return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: STORAGE_FEE };
   }
 }
 
@@ -188,6 +218,7 @@ export function extToJson(e) {
     encrypted_output2: Buffer.from(e.encryptedOutput2).toString('base64'),
     token: e.token,
     swap_leg: hex(e.swapLeg ?? 0n),
+    valid_until: String(e.validUntil ?? 0n),
   };
 }
 

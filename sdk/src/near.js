@@ -16,6 +16,10 @@ export function poolClient(contractId, network = 'testnet', rpcUrl = RPC[network
   };
 }
 
+export async function blockHeight(provider) {
+  return BigInt((await provider.viewBlock({ finality: 'final' })).header.height);
+}
+
 export function signerAccount(accountId, secretKey, provider) {
   return new Account(accountId, provider, KeyPairSigner.fromSecretKey(secretKey));
 }

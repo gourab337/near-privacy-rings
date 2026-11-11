@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.js';
-import { poolClient, signerAccount, send } from '../sdk/src/near.js';
+import { blockHeight, poolClient, signerAccount, send } from '../sdk/src/near.js';
 
 const env = process.env;
 const NETWORK = env.NPR_NETWORK ?? 'testnet';
@@ -53,7 +53,7 @@ const show = async () => {
 
 step('1. alice deposits 0.2 NEAR (public: alice, 0.2 NEAR)');
 await alice.w.sync();
-tx(await send(alice.acct, await alice.w.deposit('near', NEAR(0.2))));
+for (const c of await alice.w.deposit('near', NEAR(0.2))) tx(await send(alice.acct, c));
 await show();
 
 step('2. confidential ring: alice sends bob 0.05 NEAR (public: alice signed; asset, amount, recipient hidden)');
@@ -61,18 +61,19 @@ tx(await send(alice.acct, await alice.w.transfer('near', NEAR(0.05), bob.w.keypa
 await show();
 
 step(`3. anonymous ring: bob withdraws 0.03 NEAR to his account via relayer ${relayerInfo.relayer} (bob never signs)`);
-const fee = NEAR(0.001);
+const fee = BigInt(relayerInfo.minFee.near);
 tx(await relay(await bob.w.withdraw('near', NEAR(0.03), env.BOB, { relayer: relayerInfo.relayer, fee })));
 await show();
 
 step('4. bob wraps 0.1 NEAR and deposits 0.1 wNEAR via ft_transfer_call');
 await bob.acct.callFunction({ contractId: WRAP, methodName: 'storage_deposit', args: {}, deposit: NEAR(0.00125), gas: 30_000_000_000_000n });
 await bob.acct.callFunction({ contractId: WRAP, methodName: 'near_deposit', args: {}, deposit: NEAR(0.1), gas: 30_000_000_000_000n });
-tx(await send(bob.acct, await bob.w.deposit(WRAP, NEAR(0.1))));
+for (const c of await bob.w.deposit(WRAP, NEAR(0.1))) tx(await send(bob.acct, c));
 await show();
 
 step('5. private swap: alice gives 0.04 NEAR for bob’s 0.05 wNEAR, atomically, submitted by the relayer');
-const offer = alice.w.createOffer('near', NEAR(0.04), WRAP, NEAR(0.05));
+// both legs expire ~10 minutes from now, so neither side can sit on the other's leg
+const offer = alice.w.createOffer('near', NEAR(0.04), WRAP, NEAR(0.05), { validUntil: (await blockHeight(pool.provider)) + 600n });
 const taken = await bob.w.takeOffer(offer);
 tx(await relay(await alice.w.completeOffer(taken)));
 await show();

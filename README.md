@@ -33,15 +33,20 @@ Testnet demo: deposit → confidential transfer → anonymous withdraw → wNEAR
 
 ```bash
 # relayer (terminal 1)
-NPR_CONTRACT=pool.npr-364072.testnet RELAYER_ACCOUNT_ID=<relayer>.testnet \
+NPR_CONTRACT=npr-pool-65673.testnet RELAYER_ACCOUNT_ID=<relayer>.testnet \
 RELAYER_PRIVATE_KEY=ed25519:... node relayer/server.js
 # demo (terminal 2): keys from ~/.near-credentials/testnet/
-NPR_CONTRACT=pool.npr-364072.testnet ALICE=<a>.testnet BOB=<b>.testnet \
+NPR_CONTRACT=npr-pool-65673.testnet ALICE=<a>.testnet BOB=<b>.testnet \
 RELAYER_URL=http://localhost:8787 node scripts/e2e.mjs
 ```
 
 Measured gas: deposit and transfer about 63 Tgas, private swap about 123 Tgas
-(the per-transaction limit is 300 Tgas).
+(the per-transaction limit is 300 Tgas). Every proof also pays a 0.01 NEAR storage fee
+for the two leaves and two nullifiers it adds.
+
+Web app: `cd app && npm ci && npm run dev`. Proofs are generated in the browser (about 5 s).
+Anonymous actions go through the relayer, so sending, withdrawing and swapping need no
+wallet connection. Deposits and the confidential ring use NEAR Wallet Selector.
 
 ## How it works
 

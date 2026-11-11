@@ -5,10 +5,12 @@
 //   RELAYER_PRIVATE_KEY=ed25519:... node relayer/server.js
 import http from 'node:http';
 import { poolClient, signerAccount, send } from '../sdk/src/near.js';
+import { STORAGE_FEE } from '../sdk/src/wallet.js';
 
 const { NPR_NETWORK = 'testnet', NPR_CONTRACT, RELAYER_ACCOUNT_ID, RELAYER_PRIVATE_KEY, PORT = 8787 } = process.env;
 // minimum fee per token in its smallest unit; tokens absent here are refused when a fee is due
-const MIN_FEE = JSON.parse(process.env.RELAYER_MIN_FEE ?? '{"near":"1000000000000000000000","wrap.testnet":"1000000000000000000000"}');
+// default 0.02 NEAR: covers the 0.01 NEAR storage fee the relayer attaches plus ~64 Tgas
+const MIN_FEE = JSON.parse(process.env.RELAYER_MIN_FEE ?? '{"near":"20000000000000000000000","wrap.near":"20000000000000000000000","wrap.testnet":"20000000000000000000000"}');
 // swaps hide the asset, so they cannot pay a fee; the operator sponsors them (or disables)
 const SPONSOR_SWAPS = process.env.RELAYER_SPONSOR_SWAPS !== 'false';
 
@@ -50,7 +52,9 @@ const server = http.createServer(async (req, res) => {
     const call = JSON.parse(body);
     const err = checkCall(call);
     if (err) return reply(400, { error: err });
-    const txHash = await send(account, { ...call, deposit: 0n });
+    // the relayer pays the storage fee itself (recovered from `fee`; sponsored for swaps)
+    const deposit = call.method === 'swap' ? 2n * STORAGE_FEE : STORAGE_FEE;
+    const txHash = await send(account, { receiverId: call.receiverId, method: call.method, args: call.args, deposit });
     console.log(new Date().toISOString(), call.method, txHash);
     reply(200, { txHash });
   } catch (e) {

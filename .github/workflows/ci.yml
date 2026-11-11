@@ -1,0 +1,17 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cd sdk && npm ci && npm test
+      - name: contract unit tests (real Groth16 proofs, alt_bn128 host functions)
+        run: cd contract && cargo test --lib
+      - name: fixtures are reproducible from the SDK
+        run: node scripts/gen-fixtures.mjs && cd contract && cargo test --lib
+      - name: app builds
+        run: cd app && npm ci && npm run build

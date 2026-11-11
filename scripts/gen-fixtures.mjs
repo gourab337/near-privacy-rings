@@ -1,46 +1,92 @@
-// Generates real proofs used as contract test fixtures (dev zkey only).
+// Generates contract test fixtures with the real SDK wallet against an in-memory pool
+// (dev zkey only). Every call spec is "applied" locally the way the contract would.
 import fs from 'node:fs';
 import * as snarkjs from '../sdk/node_modules/snarkjs/main.js';
-import { initCrypto, Keypair, Note, MerkleTree, assetId } from '../sdk/src/crypto.js';
-import { buildProof } from '../sdk/src/prover.js';
+import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.js';
+import { MerkleTree } from '../sdk/src/crypto.js';
 
 await initCrypto();
-const art = { wasm: 'artifacts/dev/transaction2x2.wasm', zkey: 'artifacts/dev/transaction2x2.zkey' };
+const ART = { wasm: 'artifacts/dev/transaction2x2.wasm', zkey: 'artifacts/dev/transaction2x2.zkey' };
 const vkey = JSON.parse(fs.readFileSync('artifacts/dev/verification_key.json'));
-const NEAR = assetId('near');
-const alice = new Keypair(11n), bob = new Keypair(22n);
-const tree = new MerkleTree();
-const enc = (n, kp) => n.encrypt(kp.view.publicKey);
+const TOKEN = 'wrap.testnet';
+const VALID_UNTIL = 1000n;
 
-// 1) deposit 10 (yocto units for test) of native NEAR to alice as 7 + 3
-const d1 = new Note({ amount: 7n, keypair: alice, asset: NEAR });
-const d2 = new Note({ amount: 3n, keypair: alice, asset: NEAR });
-const depExt = { recipient: '', extAmount: 10n, relayer: '', fee: 0n, encryptedOutput1: enc(d1, alice), encryptedOutput2: enc(d2, alice), token: 'near', swapLeg: 0n };
-const dep = await buildProof({ tree, inputs: [], outputs: [d1, d2], asset: NEAR, ext: depExt, publicAsset: NEAR, artifacts: art });
-console.log('deposit proof verifies:', await snarkjs.groth16.verify(vkey, dep.publicSignals, dep.proof));
-const rootBefore = tree.root();
-d1.index = 0; d2.index = 1;
-tree.insert(d1.commitment()); tree.insert(d2.commitment());
+// in-memory pool state
+const leaves = [];
+const spent = new Set();
+const pool = {
+  contractId: 'pool.near',
+  view: async (m, a) => (m === 'get_leaves' ? leaves.slice(a.from_index, a.from_index + a.limit) : spent.has(a.nullifier)),
+};
+const tree = () => new MerkleTree(20, leaves.map((l) => BigInt('0x' + l.commitment)));
+function apply(proofArgs, ext) {
+  proofArgs.input_nullifiers.forEach((n) => spent.add(n));
+  leaves.push({ commitment: proofArgs.output_commitments[0], encrypted_output: ext.encrypted_output1 });
+  leaves.push({ commitment: proofArgs.output_commitments[1], encrypted_output: ext.encrypted_output2 });
+}
+async function check(proofArgs, ext, label) {
+  const sig = [proofArgs.root, proofArgs.public_amount, proofArgs.ext_data_hash, proofArgs.public_asset, ...proofArgs.input_nullifiers, ...proofArgs.output_commitments].map((h) => BigInt('0x' + h).toString());
+  const proof = decodeProof(proofArgs.proof);
+  if (!(await snarkjs.groth16.verify(vkey, sig, proof))) throw new Error(`${label}: proof does not verify`);
+}
+// re-encode NEAR proof bytes into snarkjs form, to check the encoding round-trips
+function decodeProof(b64) {
+  const b = Buffer.from(b64, 'base64');
+  const le = (o) => BigInt('0x' + Buffer.from(b.subarray(o, o + 32)).reverse().toString('hex')).toString();
+  return { pi_a: [le(0), le(32), '1'], pi_b: [[le(64), le(96)], [le(128), le(160)], ['1', '0']], pi_c: [le(192), le(224), '1'], protocol: 'groth16', curve: 'bn128' };
+}
 
-// 2) private transfer: alice spends 7+3, bob gets 4, alice change 6. asset hidden.
-const o1 = new Note({ amount: 4n, pubKey: bob.pubKey, asset: NEAR });
-const o2 = new Note({ amount: 6n, keypair: alice, asset: NEAR });
-const trExt = { recipient: '', extAmount: 0n, relayer: '', fee: 0n, encryptedOutput1: enc(o1, bob), encryptedOutput2: enc(o2, alice), token: '', swapLeg: 0n };
-const tr = await buildProof({ tree, inputs: [d1, d2], outputs: [o1, o2], asset: NEAR, ext: trExt, publicAsset: 0n, artifacts: art });
-console.log('transfer proof verifies:', await snarkjs.groth16.verify(vkey, tr.publicSignals, tr.proof));
-const rootAfterDeposit = tree.root();
-o1.index = 2; o2.index = 3;
-tree.insert(o1.commitment()); tree.insert(o2.commitment());
+const alice = new ShieldedWallet(new Keypair(11n), pool, ART);
+const bob = new ShieldedWallet(new Keypair(22n), pool, ART);
+const out = { note: 'DEV zkey fixtures; not for mainnet', empty_root: hex(tree().root()) };
 
-const extJson = (e) => ({ recipient: e.recipient, ext_amount: e.extAmount.toString(), relayer: e.relayer, fee: e.fee.toString(),
-  encrypted_output1: Buffer.from(e.encryptedOutput1).toString('base64'), encrypted_output2: Buffer.from(e.encryptedOutput2).toString('base64'),
-  token: e.token, swap_leg: e.swapLeg.toString(16).padStart(64, '0') });
-const hex = (x) => x.toString(16).padStart(64, '0');
-fs.writeFileSync('contract/tests/fixtures/dev.json', JSON.stringify({
-  note: 'DEV zkey fixtures — not for mainnet',
-  empty_root: hex(rootBefore), root_after_deposit: hex(rootAfterDeposit), root_after_transfer: hex(tree.root()),
-  deposit: { args: dep.args, ext_data: extJson(depExt) },
-  transfer: { args: tr.args, ext_data: extJson(trExt) },
-}, null, 2));
-console.log('wrote fixtures');
+// 1) alice deposits 10 native (yocto) units
+await alice.sync();
+const [dep] = await alice.deposit('near', 10n);
+await check(dep.args.args, dep.args.ext_data, 'deposit');
+out.deposit = dep.args;
+apply(dep.args.args, dep.args.ext_data);
+out.root_after_deposit = hex(tree().root());
+
+// 2) alice -> bob 4 (hidden)
+await alice.sync();
+const tr = await alice.transfer('near', 4n, bob.keypair.address());
+await check(tr.args.args, tr.args.ext_data, 'transfer');
+out.transfer = tr.args;
+apply(tr.args.args, tr.args.ext_data);
+out.root_after_transfer = hex(tree().root());
+
+// 3) bob deposits 5 wrap.testnet via ft_transfer_call
+await bob.sync();
+const [, ft] = await bob.deposit(TOKEN, 5n);
+const msg = JSON.parse(ft.args.msg);
+await check(msg.args, msg.ext_data, 'ft deposit');
+out.ft_deposit = { msg: ft.args.msg, amount: ft.args.amount, token: TOKEN };
+apply(msg.args, msg.ext_data);
+
+// 4) swap: alice gives 2 NEAR for bob's 3 wNEAR
+await Promise.all([alice.sync(), bob.sync()]);
+const offer = alice.createOffer('near', 2n, TOKEN, 3n, { validUntil: VALID_UNTIL });
+const taken = await bob.takeOffer(offer);
+const swap = await alice.completeOffer(taken);
+await check(swap.args.leg_a, swap.args.ext_a, 'swap leg a');
+await check(swap.args.leg_b, swap.args.ext_b, 'swap leg b');
+out.swap = swap.args;
+out.swap_valid_until = Number(VALID_UNTIL);
+apply(swap.args.leg_a, swap.args.ext_a);
+apply(swap.args.leg_b, swap.args.ext_b);
+out.root_after_swap = hex(tree().root());
+
+// sanity: balances as the wallets see them after everything
+await Promise.all([alice.sync(), bob.sync()]);
+const bal = (w) => `${w.balance('near')} NEAR / ${w.balance(TOKEN)} wNEAR`;
+console.log('alice', bal(alice), '| bob', bal(bob));
+if (alice.balance('near') !== 4n || alice.balance(TOKEN) !== 3n || bob.balance('near') !== 6n || bob.balance(TOKEN) !== 2n) throw new Error('unexpected balances');
+
+fs.writeFileSync('contract/tests/fixtures/dev.json', JSON.stringify(out, null, 2));
+console.log('wrote contract/tests/fixtures/dev.json');
 process.exit(0);
+
+function hex(x) {
+  return x.toString(16).padStart(64, '0');
+}

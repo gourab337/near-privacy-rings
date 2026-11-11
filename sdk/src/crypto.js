@@ -2,7 +2,11 @@
 // Must stay byte-for-byte consistent with contract/src (see contract tests).
 import { buildPoseidon } from 'circomlibjs';
 import nacl from 'tweetnacl';
-import { createHash, randomBytes } from 'node:crypto';
+import { sha256 as nobleSha256 } from '@noble/hashes/sha2.js';
+import { Buffer } from 'buffer';
+
+export { Buffer };
+const randomBytes = (n) => Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(n)));
 
 export const FIELD_SIZE = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const TREE_DEPTH = 20;
@@ -19,7 +23,7 @@ export function poseidon(inputs) {
 export const randomField = () => BigInt('0x' + randomBytes(31).toString('hex'));
 
 export function sha256(buf) {
-  return createHash('sha256').update(buf).digest();
+  return Buffer.from(nobleSha256(new Uint8Array(buf)));
 }
 
 /** sha256 with the top byte zeroed, read big-endian: always < FIELD_SIZE. */
@@ -148,7 +152,8 @@ export class MerkleTree {
 
 /**
  * ExtData { recipient: String, ext_amount: i128, relayer: String, fee: u128,
- *           encrypted_output1: Vec<u8>, encrypted_output2: Vec<u8>, token: String, swap_leg: [u8;32] }
+ *           encrypted_output1: Vec<u8>, encrypted_output2: Vec<u8>, token: String, swap_leg: [u8;32],
+ *           valid_until: u64 }
  */
 export function encodeExtData(ext) {
   return Buffer.concat([
@@ -160,6 +165,7 @@ export function encodeExtData(ext) {
     borshBytes(ext.encryptedOutput2),
     borshString(ext.token),
     toBytes32BE(BigInt(ext.swapLeg ?? 0n)),
+    u64LE(BigInt(ext.validUntil ?? 0n)),
   ]);
 }
 export const extDataHash = (ext) => sha256Field(encodeExtData(ext));
@@ -176,6 +182,11 @@ export function u128LE(x) {
   const b = Buffer.alloc(16);
   b.writeBigUInt64LE(x & 0xffffffffffffffffn, 0);
   b.writeBigUInt64LE(x >> 64n, 8);
+  return b;
+}
+function u64LE(x) {
+  const b = Buffer.alloc(8);
+  b.writeBigUInt64LE(x);
   return b;
 }
 function i128LE(x) {
