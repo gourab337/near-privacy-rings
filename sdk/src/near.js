@@ -77,6 +77,24 @@ export async function sendOpen(provider, open, call) {
   throw last;
 }
 
+/**
+ * Builds a call with `build()`. A proof spends at most two notes, so if the balance is split
+ * across more, merges the two smallest through `submit` (paying the route's fee, `opts`) and
+ * retries, up to `tries` merges. `onMerge` is called before each merge.
+ */
+export async function withMerge(wallet, token, opts, submit, build, { tries = 4, onMerge } = {}) {
+  for (let i = 0; ; i++) {
+    await wallet.sync();
+    try {
+      return await build();
+    } catch (e) {
+      if (i >= tries || !/run merge first/.test(String(e?.message))) throw e;
+      onMerge?.();
+      await submit(await wallet.merge(token, opts));
+    }
+  }
+}
+
 function findFailure(res) {
   if (res.status?.Failure) return res.status.Failure;
   for (const r of res.receipts_outcome ?? []) if (r.outcome.status?.Failure) return r.outcome.status.Failure;

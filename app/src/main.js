@@ -10,7 +10,7 @@ import { setupHereWallet } from '@near-wallet-selector/here-wallet';
 import { setupIntearWallet } from '@near-wallet-selector/intear-wallet';
 import { actionCreators } from '@near-js/transactions';
 import { Buffer, initCrypto, FIELD_SIZE, sha256, toBytes32BE, Keypair, Note, assetId, ShieldedWallet, OPEN_FEE, STORAGE_FEE, verifyReceipt, encodeJson, decodeJson } from '../../sdk/src/index.js';
-import { poolClient, retry, sendOpen } from '../../sdk/src/near.js';
+import { poolClient, retry, sendOpen, withMerge } from '../../sdk/src/near.js';
 import { RHEA, HOP_GAS_MONEY, quote, minOut, privateSwap, sweep, findHops, newHopIndex } from '../../sdk/src/rhea.js';
 import { createTools } from '../../agent/core.js';
 import { NEARAI, SYSTEM_PROMPT, runAgent } from '../../agent/nearai.js';
@@ -156,7 +156,8 @@ async function sendAnonymous(token, build) {
   let last;
   for (const r of routes) {
     try {
-      const call = await build(r.opts);
+      // a proof spends at most two notes: merge fragmented notes first, through the same route
+      const call = await withMerge(sw, token, r.opts, r.send, () => build(r.opts), { onMerge: () => busy('Merging notes first…') });
       return { hashes: await r.send(call), via: r.via, fee: r.fee, call };
     } catch (e) {
       last = e;

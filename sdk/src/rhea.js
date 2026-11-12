@@ -14,7 +14,7 @@ import { ed25519 } from '@noble/curves/ed25519.js';
 import { actions, baseEncode } from 'near-api-js';
 import { Buffer, sha256, toBytes32BE } from './crypto.js';
 import { OPEN_FEE, STORAGE_FEE } from './wallet.js';
-import { retry, sendOpen, signerAccount } from './near.js';
+import { retry, sendOpen, signerAccount, withMerge } from './near.js';
 
 export const RHEA = {
   exchange: 'v2.ref-finance.near',
@@ -110,8 +110,10 @@ export async function privateSwap({ wallet, provider, open, from, to, amountIn, 
   const hashes = [];
   const fund = async (amount) => {
     onStep('Funding a single-use account through the open ring');
-    await wallet.sync();
-    hashes.push(await sendOpen(provider, open, await wallet.withdraw('near', amount, hop.accountId, { relayer: open.account, fee: OPEN_FEE })));
+    const opts = { relayer: open.account, fee: OPEN_FEE };
+    const submit = (c) => sendOpen(provider, open, c);
+    const call = await withMerge(wallet, 'near', opts, submit, () => wallet.withdraw('near', amount, hop.accountId, opts), { onMerge: () => onStep('Merging notes first') });
+    hashes.push(await submit(call));
     await waitFor(async () => (await nearBalance(provider, hop.accountId))?.amount >= amount, 'the single-use account');
   };
   const swapMsg = JSON.stringify({ force: 0, actions: [{ pool_id: poolOf(from, to), token_in: ftId(from), token_out: ftId(to), amount_in: amountIn.toString(), min_amount_out: BigInt(limit).toString() }] });

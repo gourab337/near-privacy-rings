@@ -14,7 +14,7 @@ It is not a port of their code.
 
 **Try it:** https://gourab337.github.io/near-privacy-rings/ — opens on testnet with a
 pre-funded demo wallet; no wallet or setup needed. Switch to **Mainnet** at the top right for
-real NEAR and private swaps on Rhea. **Demo video (2 min, narrated):**
+real NEAR and private swaps on Rhea. **Demo video (2:20, narrated, mainnet):**
 [`media/demo.mp4`](media/demo.mp4).
 
 > **Status: live on NEAR mainnet** at [`rings.primeis.near`](https://nearblocks.io/address/rings.primeis.near),
