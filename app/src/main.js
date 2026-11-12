@@ -841,8 +841,11 @@ async function boot() {
     const b = e.target.closest('[data-net]');
     if (!b || b.disabled || b.dataset.net === NETWORK) return;
     try { localStorage.setItem(NETWORK_STORE, b.dataset.net); } catch {}
+    // drop ?network= (it would override the choice) and reload; keep the tab (#swap).
+    // Setting location.href to a URL that differs only by its #hash would not reload.
     const u = new URL(location.href); u.searchParams.delete('network');
-    location.href = u.toString();
+    history.replaceState(null, '', u.toString());
+    location.reload();
   });
   for (const el of $$('.near-logo')) el.innerHTML = NEAR_LOGO;
   $('#contract-link').href = `${EXPLORER_URL}/address/${CONTRACT}`;
