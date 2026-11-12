@@ -662,7 +662,9 @@ function agentSetup() {
   agentMessages = [{ role: 'system', content: SYSTEM_PROMPT }];
   $('#agent-addr').textContent = short(agentWallet.keypair.address(), 8, 6);
   $('#agent-model').textContent = NEARAI.model;
-  try { $('#nearai-key').value = localStorage.getItem(NEARAI_KEY) ?? ''; } catch {}
+  // VITE_NEARAI_KEY: a developer's own key for local builds only (app/.env, git-ignored); the
+  // public build never sets it, so visitors bring their own key
+  try { $('#nearai-key').value = localStorage.getItem(NEARAI_KEY) ?? env.VITE_NEARAI_KEY ?? ''; } catch {}
   const me = sw.keypair.address();
   const prompts = [
     ['Balance', 'What is your private balance?'],
