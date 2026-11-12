@@ -15,7 +15,7 @@ It is not a port of their code.
 **Try it:** the app at https://nearprivacyrings-app.vercel.app opens on testnet with a
 pre-funded demo wallet; no wallet or setup needed. Switch to **Mainnet** at the top right for
 real NEAR, private swaps on Rhea and the AI agent. Website: https://nearprivacyrings.vercel.app
-(moving to nearprivacyrings.xyz and app.nearprivacyrings.xyz once the domain registration completes). **Demo video (2:20, narrated,
+(moving to nearprivacyrings.xyz and app.nearprivacyrings.xyz once the domain registration completes). On X: [@ringsonnear](https://x.com/ringsonnear). **Demo video (2:20, narrated,
 mainnet):** [`site/walkthrough.mp4`](site/walkthrough.mp4).
 
 > **Status: live on NEAR mainnet** at [`rings.primeis.near`](https://nearblocks.io/address/rings.primeis.near),
