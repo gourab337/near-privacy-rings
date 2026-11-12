@@ -9,3 +9,6 @@ app/dist/
 
 # agent shielded key
 agent/.agent-key
+
+# Vercel CLI link
+.vercel
