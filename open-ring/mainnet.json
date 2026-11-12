@@ -1,0 +1,15 @@
+{
+  "note": "Public on purpose. These are function-call keys that can only call transact on the pool; they cannot move funds. See README, Open ring.",
+  "pool": "rings.primeis.near",
+  "account": "gas.primeis.near",
+  "keys": [
+    "ed25519:3aQDdC872gezWMUgYp7KJZdH5PnMU5egAP55Mpd7CnhiMFh3ZL9hAjbi5LbyKqEcvL2jVcnYG3zbiEe68wyGn5zH",
+    "ed25519:5v8gpEbrtUeKpvsL3PV81pQLKhkD4H1q2MQtfogLQBMoKxU7L12kkizjFYXZqFF8gZneWbnu77TnvX8ZH65d7t9V",
+    "ed25519:4eSMWEXippmw2vyKiJTmQjCdxtkgiWsESs2HFmWwt2AXSXuxn16hFxidzZjkLxt1BwD2DiBwLxcFwL92f6ZjkWvZ",
+    "ed25519:51ooias6dmGV3Q21VNTJLAxU6tDdpix76xVJzruWZPMEMVatiQpKyoEAsPKKxXBzoRWMe6k3EjVf6dWPEswKCvD4",
+    "ed25519:6Beaa3K25tAUzUiHc34Xno7KuysU35hnmNz5te1KtYXsYwv2PxhDCqUfhH8jf4aAKZptpUprwBfXambbmuzMUyu",
+    "ed25519:GxZSioX8Cr61ix5vLge4UnSAb2giPaFEWvrBFJ1DuVXDUUy9TN9XGEgGqDpusUkD2cqxb6Uvo6ak7UZDcjzbjb4",
+    "ed25519:4dcXiSSLQS1Nq2D9JB9HjwuMakqJwwnHSKjxP6hhfQJRSwGLcrvrKXkE9dDWGy3ERxGeb1EJfyB43ouWLefoUBhM",
+    "ed25519:3wQpb4gaF5xLToX1AvG6SBdLoNtiyidY3W5Hubkc3UDnEo8YSjVDQvmRWiDqqTKk94a7ctAiGcwhK1xYKXo9gMgx"
+  ]
+}

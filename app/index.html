@@ -5,130 +5,198 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NEAR Privacy Rings</title>
     <meta name="description" content="Private balances and payments on NEAR, enforced by zero-knowledge proofs. Try it on testnet with a pre-funded demo wallet." />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='12' cy='16' r='8' fill='none' stroke='%2300a97a' stroke-width='3'/><circle cx='20' cy='16' r='8' fill='none' stroke='%23999' stroke-width='3'/></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230b0b0c'/><circle cx='13' cy='16' r='6.5' fill='none' stroke='%2300ec97' stroke-width='2.6'/><circle cx='19' cy='16' r='6.5' fill='none' stroke='%23fafaf9' stroke-width='2.6'/></svg>" />
   </head>
   <body>
+    <!-- decorative: blurred floating marks behind the page, like Uniswap's token field -->
+    <div class="orbs" aria-hidden="true">
+      <span class="orb o1"><span class="near-logo"></span></span>
+      <span class="orb o2 g"></span>
+      <span class="orb o3"><i class="ph ph-lock-simple"></i></span>
+      <span class="orb o4 g"><i class="ph ph-eye-slash"></i></span>
+      <span class="orb o5"><span class="near-logo"></span></span>
+      <span class="orb o6"><i class="ph ph-shield-check"></i></span>
+      <span class="orb o7 g"></span>
+      <span class="orb o8"><i class="ph ph-paper-plane-tilt"></i></span>
+    </div>
+
+    <nav class="nav">
+      <a class="brand" href="./"><span class="mark" aria-hidden="true"><i></i><i></i></span><span>Privacy Rings</span></a>
+      <div class="seg" role="tablist" aria-label="Action">
+        <button data-tab="send" class="active" role="tab">Send</button>
+        <button data-tab="withdraw" role="tab">Withdraw</button>
+        <button data-tab="deposit" role="tab">Deposit</button>
+        <button data-tab="swap" role="tab">Swap</button>
+        <button data-tab="disclose" role="tab">Prove</button>
+      </div>
+      <div class="nav-right">
+        <div class="net-wrap"><button class="net" id="network" aria-haspopup="menu" aria-expanded="false" title="Switch network"></button><div id="net-menu" class="net-menu" role="menu" hidden></div></div>
+        <button id="new-session" class="icon-btn" title="Lock wallet" aria-label="Lock wallet"><i class="ph ph-lock-simple"></i></button>
+        <button id="connect" class="connect">Connect</button>
+      </div>
+    </nav>
+
     <main>
-      <header class="top">
-        <div>
-          <h1>NEAR Privacy Rings <span class="pill" id="network"></span></h1>
-          <p class="lede">Send money on NEAR without the world seeing who paid whom, or how much. This demo gives you a private balance to try it.</p>
-        </div>
-        <div class="top-actions">
-          <button id="new-session" class="link">Start new session →</button>
-          <button id="connect" class="ghost small">Connect wallet</button>
-        </div>
-      </header>
+      <h1 class="hero">Pay anyone, privately.</h1>
 
-      <div id="viewonly" class="notice" hidden>View-only mode: this is an auditor's viewing key. It shows every payment this address received. It cannot spend.</div>
+      <div id="viewonly" class="notice" hidden><i class="ph ph-eye"></i> View-only mode. This viewing key shows every payment this address received. It cannot spend.</div>
 
-      <section class="card balance">
-        <div class="kicker">Your private balance</div>
-        <div class="total"><span id="total">0.0000</span> <small>NEAR</small></div>
-        <div class="split"><span>Only you can see this. On the public chain it is a pile of encrypted notes.</span></div>
-        <div id="tokens" class="tokens"></div>
-        <details class="addr">
-          <summary>Your private address and key</summary>
-          <p class="muted">Others pay you privately at this address.</p>
-          <div class="row"><code id="address"></code><button id="copy-address" class="ghost small">Copy</button></div>
-          <p class="muted">The key below spends this balance. It lives only in this browser.</p>
-          <div class="row"><button id="export-key" class="ghost small">Show key</button><button id="import-key" class="ghost small">Use another key</button></div>
-          <code id="key-out" hidden></code>
-        </details>
-      </section>
-
-      <section class="card">
-        <nav class="seg" role="tablist">
-          <button data-tab="send" class="active">Send</button>
-          <button data-tab="withdraw">Withdraw</button>
-          <button data-tab="deposit">Deposit</button>
-          <button data-tab="swap">Swap</button>
-          <button data-tab="disclose">Prove</button>
-        </nav>
-
+      <section class="widget" aria-live="polite">
         <form data-panel="send" class="panel">
-          <div class="field"><div class="label">Recipient</div><div class="chips" data-chips="to"></div>
-            <input name="toCustom" placeholder="npr… private address" hidden /></div>
-          <div class="field"><div class="label">Amount</div><div class="chips" data-chips="amount"></div></div>
-          <button type="submit" class="primary">Send privately</button>
-          <p class="explain">A private transfer moves money between private balances. The chain records that <em>someone</em> paid <em>someone</em>: not who, and not how much. You don't sign anything and no wallet is needed.</p>
+          <div class="box line">
+            <label class="box-top" for="send-amount"><span>Send</span><span class="bal"></span></label>
+            <div class="box-row"><input id="send-amount" name="amount" class="amount" inputmode="decimal" autocomplete="off" size="1" /><span class="token"><span class="near-logo"></span>NEAR</span></div>
+            <div class="chips quick" data-chips="amount" aria-label="Quick amounts"></div>
+          </div>
+          <div class="arrow" aria-hidden="true"><i class="ph ph-arrow-down"></i></div>
+          <div class="box">
+            <div class="box-top"><span>To</span><span>Private address</span></div>
+            <div class="chips" data-chips="to"></div>
+            <input name="toCustom" placeholder="npr…" aria-label="Private address" hidden />
+          </div>
+          <div class="fee-line"></div>
+          <button type="submit" class="primary" data-label="Send privately">Send privately</button>
         </form>
 
         <form data-panel="withdraw" class="panel" hidden>
-          <div class="field"><div class="label">Send to a public NEAR account</div><div class="chips" data-chips="recipient"></div>
-            <input name="recipientCustom" placeholder="someone.testnet" hidden /></div>
-          <div class="field"><div class="label">Amount</div><div class="chips" data-chips="amount"></div></div>
-          <button type="submit" class="primary">Withdraw</button>
-          <p class="explain">A withdrawal pays a normal NEAR account from your private balance. The chain shows who received how much, but not whose private balance paid it.</p>
+          <div class="box line">
+            <label class="box-top" for="wd-amount"><span>Withdraw</span><span class="bal"></span></label>
+            <div class="box-row"><input id="wd-amount" name="amount" class="amount" inputmode="decimal" autocomplete="off" size="1" /><span class="token"><span class="near-logo"></span>NEAR</span></div>
+            <div class="chips quick" data-chips="amount" aria-label="Quick amounts"></div>
+          </div>
+          <div class="arrow" aria-hidden="true"><i class="ph ph-arrow-down"></i></div>
+          <div class="box">
+            <div class="box-top"><span>To</span><span>Public NEAR account</span></div>
+            <div class="chips" data-chips="recipient"></div>
+            <input name="recipientCustom" placeholder="someone.near" aria-label="NEAR account" hidden />
+          </div>
+          <div class="fee-line"></div>
+          <button type="submit" class="primary" data-label="Withdraw">Withdraw</button>
         </form>
 
         <form data-panel="deposit" class="panel" hidden>
-          <div class="field"><div class="label">Amount</div><div class="chips" data-chips="amount"></div></div>
-          <button type="submit" class="primary">Connect wallet and deposit</button>
-          <p class="explain">A deposit moves NEAR from your own wallet into your private balance. This step is public: the chain shows your account and the amount. Everything after it is private. Needs a testnet wallet such as Meteor.</p>
+          <div class="box line">
+            <label class="box-top" for="dep-amount"><span>Deposit</span><span>From your wallet</span></label>
+            <div class="box-row"><input id="dep-amount" name="amount" class="amount" inputmode="decimal" autocomplete="off" size="1" /><span class="token"><span class="near-logo"></span>NEAR</span></div>
+            <div class="chips quick" data-chips="amount" aria-label="Quick amounts"></div>
+          </div>
+          <div class="arrow" aria-hidden="true"><i class="ph ph-arrow-down"></i></div>
+          <div class="box"><div class="box-top"><span>Into</span><span class="bal"></span></div><div class="dest"><i class="ph ph-lock-simple"></i> Your private balance</div></div>
+          <div class="fee-line"></div>
+          <button type="submit" class="primary" data-label="Deposit">Deposit</button>
         </form>
 
         <div data-panel="swap" class="panel" hidden>
-          <p class="explain">Swap tokens with another person, atomically: either both sides happen or neither does. The chain sees that a swap happened, but not the tokens, the amounts or the people. Pass the codes back and forth over any chat.</p>
-          <ol class="steps">
-            <li>
-              <form id="swap-offer">
-                <strong>You:</strong> make an offer
-                <div class="grid4">
-                  <label>Give<select name="give"></select></label><label>Amount<input name="giveAmount" inputmode="decimal" required /></label>
-                  <label>Want<select name="want"></select></label><label>Amount<input name="wantAmount" inputmode="decimal" required /></label>
-                </div>
-                <button type="submit" class="small">Create offer code</button>
-              </form>
-            </li>
-            <li>
-              <form id="swap-take">
-                <strong>The other person:</strong> pastes your offer code
-                <textarea name="code" rows="2" placeholder="offer code" required></textarea>
-                <button type="submit" class="small">Accept and create reply code</button>
-              </form>
-            </li>
-            <li>
-              <form id="swap-complete">
-                <strong>You:</strong> paste their reply code to settle both sides at once
-                <textarea name="code" rows="2" placeholder="reply code" required></textarea>
-                <button type="submit" class="small">Settle swap</button>
-              </form>
-            </li>
-          </ol>
-          <div id="swap-out" class="codebox" hidden><label></label><textarea readonly rows="3"></textarea><button class="ghost small" id="swap-copy">Copy</button></div>
+          <div class="subseg" role="tablist" aria-label="Swap mode"><button type="button" data-mode="rhea" class="on">Market <small>via Rhea</small></button><button type="button" data-mode="p2p">Peer to peer</button></div>
+          <form id="rhea-swap" class="panel rhea" data-mode-panel="rhea">
+            <div class="box line">
+              <label class="box-top" for="rhea-amount"><span>You pay</span><span class="rhea-bal"></span></label>
+              <div class="box-row"><input id="rhea-amount" name="amount" class="amount" inputmode="decimal" autocomplete="off" size="1" placeholder="0" /><button type="button" class="token pick" id="rhea-in" data-side="in" aria-haspopup="dialog"></button></div>
+            </div>
+            <button type="button" class="arrow flip" id="rhea-flip" aria-label="Switch direction" title="Switch direction"><i class="ph ph-arrows-down-up"></i></button>
+            <div class="box">
+              <div class="box-top"><span>You receive</span><span id="rhea-min"></span></div>
+              <div class="box-row"><span class="amount out" id="rhea-quote">0</span><button type="button" class="token pick" id="rhea-out" data-side="out" aria-haspopup="dialog"></button></div>
+            </div>
+            <div class="fee-line" id="rhea-fees"></div>
+            <button type="submit" class="primary" data-label="Swap privately">Swap privately</button>
+            <p class="note">A single-use account, paid through the open ring, swaps on <a href="https://app.rhea.finance" target="_blank" rel="noopener">Rhea</a> and deposits the result back to you. The swap and its amounts are public; who swapped is not.</p>
+            <div id="rhea-recover" class="notice" hidden><i class="ph ph-warning"></i><span>A swap was interrupted. Its funds are safe in a single-use account.</span><button type="button" class="ghost" id="rhea-recover-btn">Recover</button></div>
+          </form>
+          <div id="rhea-off" class="box line" data-mode-panel="rhea" hidden><div class="box-top"><span>Swap privately on Rhea</span><span>Mainnet</span></div><p class="note">Rhea swaps use real liquidity, so they run on mainnet only. Switch network at the top right.</p></div>
+          <div class="p2p" data-mode-panel="p2p" hidden>
+            <div class="steps" role="tablist" aria-label="Peer-to-peer step"><button type="button" data-step="offer" class="on"><b>1</b> Make offer</button><button type="button" data-step="take"><b>2</b> Accept</button><button type="button" data-step="complete"><b>3</b> Settle</button></div>
+            <form id="swap-offer" class="panel rhea" data-step-panel="offer" novalidate>
+              <input type="hidden" name="give" value="near" /><input type="hidden" name="want" value="" />
+              <div class="box line">
+                <label class="box-top" for="give-amount"><span>You give</span><span class="p2p-bal"></span></label>
+                <div class="box-row"><input id="give-amount" name="giveAmount" class="amount" inputmode="decimal" autocomplete="off" size="1" placeholder="0" /><button type="button" class="token pick" data-p2p="give" aria-haspopup="dialog"></button></div>
+              </div>
+              <div class="arrow" aria-hidden="true"><i class="ph ph-arrow-down"></i></div>
+              <div class="box">
+                <label class="box-top" for="want-amount"><span>You want</span><span>From the other person</span></label>
+                <div class="box-row"><input id="want-amount" name="wantAmount" class="amount" inputmode="decimal" autocomplete="off" size="1" placeholder="0" /><button type="button" class="token pick" data-p2p="want" aria-haspopup="dialog"></button></div>
+              </div>
+              <button type="submit" class="primary" data-label="Create offer code">Create offer code</button>
+              <p class="note">Send the code to the other person. When they reply, settle it in step 3. Both sides move in one transaction or not at all; tokens and amounts stay hidden. The offer expires in about 15 minutes.</p>
+            </form>
+            <form id="swap-take" class="panel" data-step-panel="take" novalidate hidden>
+              <div class="box line">
+                <label class="box-top" for="take-code"><span>Paste an offer code</span></label>
+                <textarea id="take-code" name="code" rows="3" placeholder="The code the other person sent you"></textarea>
+                <div class="offer-preview" id="offer-preview"></div>
+              </div>
+              <button type="submit" class="primary" data-label="Accept and reply">Accept and reply</button>
+              <p class="note">You get a reply code to send back. Nothing moves until they settle it.</p>
+            </form>
+            <form id="swap-complete" class="panel" data-step-panel="complete" novalidate hidden>
+              <div class="box line">
+                <label class="box-top" for="done-code"><span>Paste the reply code</span></label>
+                <textarea id="done-code" name="code" rows="3" placeholder="The code the other person sent back"></textarea>
+              </div>
+              <button type="submit" class="primary" data-label="Settle swap">Settle swap</button>
+              <p class="note">Settles both sides atomically, from this browser's open offer.</p>
+            </form>
+            <div id="swap-out" class="codebox" hidden><label></label><textarea readonly rows="3"></textarea><button type="button" class="ghost" id="swap-copy"><i class="ph ph-copy"></i> Copy</button></div>
+          </div>
         </div>
 
         <div data-panel="disclose" class="panel" hidden>
-          <p class="explain">Private by default, provable when you choose. Nothing here touches the chain.</p>
-          <div class="block">
-            <strong>Show an auditor your incoming payments</strong>
-            <p class="muted">A viewing key lets someone read every payment you receive. It cannot spend, and it cannot see which payments you later spent.</p>
-            <div class="row"><button type="button" id="show-view" class="ghost small">Show viewing key</button><button type="button" id="copy-view" class="ghost small">Copy</button></div>
+          <div class="box line">
+            <div class="box-top"><span>Viewing key for an auditor</span></div>
+            <p class="note">Lets someone read every payment you receive. It cannot spend.</p>
+            <div class="row"><button type="button" id="show-view" class="ghost"><i class="ph ph-eye"></i> Show</button><button type="button" id="copy-view" class="ghost"><i class="ph ph-copy"></i> Copy</button></div>
             <code id="view-out" hidden></code>
           </div>
-          <form id="verify-receipt" class="block">
-            <strong>Check a payment receipt</strong>
-            <p class="muted">Every private payment gives the sender a receipt. Paste one here to check it against the chain.</p>
-            <textarea name="receipt" rows="2" placeholder="nprreceipt…" required></textarea>
-            <button type="submit" class="small">Check against the chain</button>
+          <form id="verify-receipt" class="box">
+            <label class="box-top" for="receipt-in"><span>Check a payment receipt</span></label>
+            <textarea id="receipt-in" name="receipt" rows="2" placeholder="nprreceipt…"></textarea>
+            <button type="submit" class="secondary">Check on-chain</button>
             <div id="verify-out" class="result"></div>
           </form>
         </div>
       </section>
 
-      <section class="card">
-        <div class="kicker">Ring explorer</div>
-        <ul id="explorer" class="explorer"><li class="empty">No activity yet. Your first payment lands here, with what each party can see.</li></ul>
+      <p class="tagline" id="tagline">Send NEAR with <em>no wallet and no relayer</em>. The chain never sees who paid whom, or how much.</p>
+
+      <section class="sheet" aria-labelledby="bal-h">
+        <div class="sheet-head"><h2 id="bal-h">Private balance <span id="wallet-kind" class="kind"></span></h2><span id="status" class="status"></span></div>
+        <div class="total"><span id="total" class="skel">0.0000</span><small>NEAR</small></div>
+        <div id="tokens" class="tokens"><div class="tok skel-row"></div></div>
+        <details class="addr">
+          <summary>Address and key</summary>
+          <div class="row"><code id="address"></code><button id="copy-address" class="icon-btn" aria-label="Copy address"><i class="ph ph-copy"></i></button></div>
+          <div class="row"><button id="export-key" class="ghost"><i class="ph ph-key"></i> Show key</button><button id="remove-wallet" class="ghost"><i class="ph ph-trash"></i> Remove wallet</button></div>
+        </details>
       </section>
 
-      <footer class="muted">
-        Testnet demo. Experimental and unaudited. Proofs are made in your browser and checked on-chain by the
-        <a id="contract-link" target="_blank" rel="noopener"></a> contract. ·
-        <a href="https://github.com/gourab337/near-privacy-rings" target="_blank" rel="noopener">Source</a>
-      </footer>
+      <section class="sheet" aria-labelledby="exp-h">
+        <div class="sheet-head"><h2 id="exp-h">Ring explorer</h2></div>
+        <ul id="explorer" class="explorer">
+          <li class="empty"><i class="ph ph-eye-slash"></i><b>Nothing yet</b><span>Send a payment to see what the public, you and the recipient can each see.</span></li>
+        </ul>
+      </section>
     </main>
-    <div id="busy" hidden><div class="spinner"></div><span id="busy-text">Working…</span></div>
+
+    <footer>
+      <span>Testnet demo. Unaudited.</span>
+      <span>Verified on-chain by <a id="contract-link" target="_blank" rel="noopener"></a></span>
+      <a href="https://github.com/gourab337/near-privacy-rings" target="_blank" rel="noopener"><i class="ph ph-github-logo"></i> Source</a>
+    </footer>
+    <dialog id="gate" aria-label="Wallet"></dialog>
+    <dialog id="token-dialog" aria-label="Select a token">
+      <div class="tokdlg">
+        <div class="tokdlg-head"><h2>Select a token</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i class="ph ph-x"></i></button></div>
+        <label class="tokdlg-search"><i class="ph ph-magnifying-glass"></i><input type="search" placeholder="Search tokens" aria-label="Search tokens" autocomplete="off" /></label>
+        <div class="tokdlg-tiles"></div>
+        <div class="tokdlg-sub"><i class="ph ph-arrows-left-right"></i> Swappable privately through Rhea</div>
+        <ul class="tokdlg-list"></ul>
+      </div>
+    </dialog>
+    <div id="busy" hidden><span id="busy-text"></span></div>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ./scripts/deploy-mainnet.sh <pool-account.near> <owner.near> [cap in NEAR, default 50]
 # Creates <pool> (a subaccount of <owner>, funded with 4 NEAR) if it does not exist, deploys,
-# lists NEAR and wNEAR, and sets up the open ring's gas account gas.<owner> with 1 NEAR.
+# lists NEAR and wNEAR, and sets up the open ring's gas account gas.<owner> with 0.3 NEAR.
 # NPR_NET=testnet runs the same steps on testnet, as a rehearsal.
 # Refuses to deploy unless contract/src/vk.rs was generated from the ceremony key in
 # artifacts/mainnet (the dev key has a single known contribution and is forgeable).
@@ -30,7 +30,7 @@ for t in near "$WRAP"; do
   near contract call-function as-transaction "$POOL" set_token json-args "{\"token\":\"$t\",\"cap\":\"$CAP\"}" prepaid-gas '30 Tgas' attached-deposit '0 NEAR' sign-as "$OWNER" "${net[@]}"
 done
 near contract call-function as-transaction "$WRAP" storage_deposit json-args "{\"account_id\":\"$POOL\"}" prepaid-gas '30 Tgas' attached-deposit '0.00125 NEAR' sign-as "$OWNER" "${net[@]}"
-node scripts/setup-open-ring.mjs "$NET" "$POOL" "gas.$OWNER" "$OWNER" 1 8
+node scripts/setup-open-ring.mjs "$NET" "$POOL" "gas.$OWNER" "$OWNER" 0.3 8
 echo "✓ deployed $POOL on $NET (owner $OWNER, cap $CAP_NEAR NEAR per token). Code hash:"
 shasum -a 256 "$WASM"
 echo "Next: commit open-ring/$NET.json, then set the repo variables NPR_NETWORK=$NET and NPR_CONTRACT=$POOL and re-run the pages workflow."

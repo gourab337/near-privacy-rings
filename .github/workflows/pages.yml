@@ -17,6 +17,9 @@ jobs:
           VITE_NETWORK: ${{ vars.NPR_NETWORK || 'testnet' }}
           VITE_CONTRACT: ${{ vars.NPR_CONTRACT || 'npr-pool-65673.testnet' }}
           VITE_RELAYER_URL: ${{ vars.NPR_RELAYER_URL || 'http://localhost:8787' }}
+          # mainnet appears in the network switcher once its pool is set here
+          VITE_MAINNET_CONTRACT: ${{ vars.NPR_MAINNET_CONTRACT || '' }}
+          VITE_MAINNET_RELAYER_URL: ${{ vars.NPR_MAINNET_RELAYER_URL || '' }}
       - uses: actions/upload-pages-artifact@v3
         with: { path: app/dist }
   deploy:

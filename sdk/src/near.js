@@ -6,15 +6,31 @@ export const RPC = {
   mainnet: 'https://rpc.mainnet.fastnear.com',
 };
 const GAS_300 = 300_000_000_000_000n;
-// the gas account pays this up front for every open-ring transaction (unused gas is refunded)
-const GAS_OPEN = 150_000_000_000_000n;
+// gas limit of an open-ring transaction (one uses about 69 Tgas). The gas account must hold
+// 0.001 NEAR per Tgas of limit to send it (refunded), so keep this tight.
+const GAS_OPEN = 100_000_000_000_000n;
+
+/**
+ * Retries `fn` when the RPC rate-limits us (HTTP 429 on the free public endpoints), backing
+ * off 1.5 s, 3 s, 4.5 s... A rate-limited request was rejected, not executed, so a retry is safe.
+ */
+export async function retry(fn, tries = 6) {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= tries || !/429|rate limit/i.test(String(e?.message ?? e))) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * i));
+    }
+  }
+}
 
 export function poolClient(contractId, network = 'testnet', rpcUrl = RPC[network]) {
   const provider = new JsonRpcProvider({ url: rpcUrl });
   return {
     contractId,
     provider,
-    view: (method, args = {}) => provider.callFunction({ contractId, method, args, finality: 'final' }),
+    view: (method, args = {}) => retry(() => provider.callFunction({ contractId, method, args, finality: 'final' })),
   };
 }
 
@@ -28,14 +44,14 @@ export function signerAccount(accountId, secretKey, provider) {
 
 /** Sends a call spec produced by ShieldedWallet ({ receiverId, method, args, deposit }). */
 export async function send(account, call) {
-  const res = await account.callFunctionRaw({
+  const res = await retry(() => account.callFunctionRaw({
     contractId: call.receiverId,
     methodName: call.method,
     args: call.args,
     deposit: call.deposit ?? 0n,
     gas: call.gas ?? GAS_300,
     waitUntil: 'FINAL',
-  });
+  }));
   const failure = findFailure(res);
   if (failure) throw new Error(`${call.method} failed: ${JSON.stringify(failure)}`);
   return res.transaction.hash;

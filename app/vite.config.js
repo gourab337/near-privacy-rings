@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 
-// Proving artifacts are served from ../artifacts/<set> (dev for testnet, mainnet for mainnet).
-const set = process.env.VITE_NETWORK === 'mainnet' ? 'mainnet' : 'dev';
+// Proving artifacts for both networks are served from ../artifacts: ./dev/ (testnet key)
+// and ./mainnet/ (mainnet key). The app picks the set for the selected network.
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   base: './',
-  publicDir: `../artifacts/${set}`,
+  publicDir: '../artifacts',
   resolve: {
     alias: {
       buffer: here('./node_modules/buffer/index.js'),

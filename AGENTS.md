@@ -8,11 +8,11 @@ anonymous withdrawals and atomic private swaps. README.md says what is and is no
 Requirements: Node 22+, Rust with the `wasm32-unknown-unknown` target. No keys or funds needed.
 
 1. `make install` — installs JS dependencies.
-2. `make test-sdk` — expect 6 passing tests (note encryption, addresses, Merkle paths, field
-   encodings, viewing key and payment receipt). `make test-agent` — expect 1 passing test:
+2. `make test-sdk` — expect 7 passing tests (note encryption, addresses, Merkle paths, field
+   encodings, viewing key, payment receipt, and the single-use accounts of Rhea swaps). `make test-agent` — expect 1 passing test:
    an agent is paid privately, refuses a payment over its cap and one over its total budget,
    pays, and its receipt verifies.
-3. `make test-contract` — expect 17 passing tests. They run real Groth16 proofs
+3. `make test-contract` — expect 18 passing tests. They run real Groth16 proofs
    (fixtures in `contract/tests/fixtures/`) through the contract, including NEAR's
    `alt_bn128` host functions: deposit, transfer, token deposit, swap, double spend,
    forged proof, tampered data, cap, expiry, failed-payout recovery, and the open ring
@@ -29,6 +29,7 @@ Optional: `make test-sandbox` runs the same flow on a local NEAR sandbox and pri
 | `contract/src/lib.rs` | Pool contract: `transact`, `swap`, `ft_on_transfer`, `claim_failed` |
 | `contract/src/verifier.rs` | Groth16 verification with `alt_bn128` host functions |
 | `sdk/src/wallet.js` | Shielded wallet: sync, deposit, transfer, withdraw, swap offers |
+| `sdk/src/rhea.js` | Private swaps on Rhea (mainnet) through a single-use account; `sweep` recovers one |
 | `agent/tools.js`, `agent/mcp.js` | Private payments for AI agents: tools and an MCP server |
 | `agent/demo.mjs` | The same tools driven by a model on NEAR AI Cloud (needs an API key) |
 | `relayer/server.js` | Relayer for anonymous submission (fallback, and for tokens other than NEAR) |
