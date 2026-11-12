@@ -77,7 +77,6 @@
   .proof a span { font: 400 14px var(--mono); color: var(--grey2); }
   .proof a:hover span { color: var(--green); }
   .status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .status .card .k i { background: var(--coral); }
   footer { border-top: 1px solid var(--line); padding: 40px 0 60px; display: flex; justify-content: space-between; align-items: center; gap: 20px; color: var(--grey); font-size: 15px; flex-wrap: wrap; }
   footer .built { display: flex; align-items: center; gap: 12px; }
   footer .built svg { width: 96px; height: 24px; }
@@ -160,12 +159,12 @@
   </section>
 
   <section>
-    <span class="over">Status</span>
-    <h2>Honest about <span class="g">its limits.</span></h2>
+    <span class="over">Roadmap</span>
+    <h2>What ships <span class="g">next.</span></h2>
     <div class="status">
-      <div class="card"><div class="k"><i></i>Unaudited</div><p style="margin-top:12px">Reviewed by AI agents, not yet by an auditor. Read the security notes before you deposit.</p></div>
-      <div class="card"><div class="k"><i></i>Single-party setup</div><p style="margin-top:12px">The proving key's trusted setup had one contributor. A multi-party ceremony is on the roadmap.</p></div>
-      <div class="card"><div class="k"><i></i>Capped deposits</div><p style="margin-top:12px">About 50 NEAR worth per token while it's young. The contract is upgradeable for bug fixes.</p></div>
+      <div class="card"><div class="k"><i></i>Independent audit</div><p style="margin-top:12px">Reviewed by AI agents so far. A professional audit comes before the deposit caps go up.</p></div>
+      <div class="card"><div class="k"><i></i>Multi-party ceremony</div><p style="margin-top:12px">A public trusted-setup ceremony with many contributors replaces today's single-party proving key.</p></div>
+      <div class="card"><div class="k"><i></i>Higher caps, then immutable</div><p style="margin-top:12px">Deposits start at about 50 NEAR worth per token. Caps rise after the audit, then the upgrade key is dropped.</p></div>
     </div>
   </section>
 
