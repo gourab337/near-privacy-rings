@@ -1,0 +1,12 @@
+# never upload local secrets: app/.env holds a developer's NEAR AI key for localhost builds
+.env
+**/.env
+**/.env.*
+agent/.agent-key
+# build output and heavy local folders (Vercel installs and builds itself)
+**/node_modules
+app/dist
+contract/target
+circuits/build
+circuits/ptau
+media

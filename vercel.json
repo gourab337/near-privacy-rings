@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd sdk && npm ci && cd ../agent && npm ci && cd ../app && npm ci",
+  "buildCommand": "cd app && VITE_NETWORK=testnet VITE_CONTRACT=npr-pool-65673.testnet VITE_MAINNET_CONTRACT=rings.primeis.near npm run build",
+  "outputDirectory": "app/dist",
+  "headers": [
+    { "source": "/(dev|mainnet)/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Referrer-Policy", "value": "no-referrer" }] }
+  ]
+}
