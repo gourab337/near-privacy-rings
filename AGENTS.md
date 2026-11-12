@@ -36,8 +36,8 @@ Optional: `make test-sandbox` runs the same flow on a local NEAR sandbox and pri
 | `relayer/server.js` | Relayer for anonymous submission (fallback, and for tokens other than NEAR) |
 | `open-ring/testnet.json` | Function-call keys published on purpose (see below) |
 | `scripts/setup-open-ring.mjs` | Creates the gas account and its keys |
-| `app/` | Web app; proofs are generated in the browser (nearprivacyrings-app.vercel.app) |
-| `site/` | Landing page and walkthrough video (nearprivacyrings.vercel.app) |
+| `app/` | Web app; proofs are generated in the browser (app.nearprivacyrings.xyz) |
+| `site/` | Landing page and walkthrough video (nearprivacyrings.xyz) |
 | `ceremony/` | Trusted-setup tooling and the transcript of the mainnet key |
 
 ## About the keys in `open-ring/`
