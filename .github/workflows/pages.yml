@@ -12,6 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: cd sdk && npm ci
+      - run: cd agent && npm ci   # the app's Agent tab imports agent/
       - run: cd app && npm ci && npm run build
         env:
           VITE_NETWORK: ${{ vars.NPR_NETWORK || 'testnet' }}

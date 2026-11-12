@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       buffer: here('./node_modules/buffer/index.js'),
       assert: here('./src/shims/assert.js'),
+      crypto: here('./src/shims/empty.js'),
     },
   },
   define: { global: 'globalThis', 'process.env.NODE_DEBUG': 'false' },

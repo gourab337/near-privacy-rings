@@ -30,6 +30,7 @@
         <button data-tab="withdraw" role="tab">Withdraw</button>
         <button data-tab="deposit" role="tab">Deposit</button>
         <button data-tab="swap" role="tab">Swap</button>
+        <button data-tab="agent" role="tab">Agent</button>
         <button data-tab="disclose" role="tab">Prove</button>
       </div>
       <div class="nav-right">
@@ -142,6 +143,32 @@
             </form>
             <div id="swap-out" class="codebox" hidden><label></label><textarea readonly rows="3"></textarea><button type="button" class="ghost" id="swap-copy"><i class="ph ph-copy"></i> Copy</button></div>
           </div>
+        </div>
+
+        <div data-panel="agent" class="panel agent" hidden>
+          <div class="box line agent-head">
+            <div class="box-top"><span>Your AI agent's private wallet</span><span id="agent-addr" class="mono"></span></div>
+            <div class="agent-bal"><b id="agent-bal">–</b><span id="agent-toks"></span></div>
+            <div class="row agent-fund"><input id="agent-fund-amt" inputmode="decimal" placeholder="0.3" aria-label="NEAR to give the agent" /><button type="button" class="ghost" id="agent-fund"><i class="ph ph-arrow-right"></i> Give privately</button><button type="button" class="ghost" id="agent-return"><i class="ph ph-arrow-u-up-left"></i> Take back</button></div>
+            <div class="agent-limits"><label>Max per payment<input id="agent-cap" inputmode="decimal" value="0.1" /><small>NEAR</small></label><label>Total budget<input id="agent-budget" inputmode="decimal" value="0.3" /><small>NEAR</small></label></div>
+            <p class="note">The agent has its own shielded key, derived from yours. The limits are enforced by code in this page, not by the model: a confused or manipulated model cannot spend past them.</p>
+          </div>
+          <div class="box agent-model">
+            <div class="box-top"><span>Model in a TEE on NEAR AI Cloud</span><span class="mono" id="agent-model"></span></div>
+            <div id="tee-badge" class="tee-badge"><i class="ph ph-shield-check"></i><span>Not verified yet</span><button type="button" class="link" id="tee-verify">Verify the hardware</button><i class="ph ph-caret-down tee-caret"></i></div>
+            <ul id="tee-checks" class="tee-checks" hidden></ul>
+            <label class="key-row"><input id="nearai-key" type="password" autocomplete="off" placeholder="Your NEAR AI Cloud API key" aria-label="NEAR AI Cloud API key" /><a href="https://nearbuilders.org/dashboard" target="_blank" rel="noopener">Get $10 free</a></label>
+            <p class="note">Your key stays in this browser and goes only to NEAR AI Cloud. Each reply's signature is checked against the attested TEE key.</p>
+          </div>
+          <div id="agent-recover" class="notice" hidden><i class="ph ph-warning"></i><span>An agent swap was interrupted. Its funds are safe.</span><button type="button" class="ghost" id="agent-recover-btn">Recover</button></div>
+          <div class="chat" id="chat" aria-live="polite">
+            <div class="chat-empty"><i class="ph ph-robot"></i><b>Ask your agent to pay or swap privately</b><span>It can check its balance, pay a shielded address, pay a NEAR account, check a receipt and, on mainnet, swap on Rhea.</span></div>
+          </div>
+          <div class="chips prompts" id="agent-prompts"></div>
+          <form id="agent-form" class="chat-input" novalidate>
+            <textarea name="msg" rows="2" placeholder="Tell your agent what to do…" aria-label="Message to your agent"></textarea>
+            <button type="submit" class="primary send-btn" aria-label="Send"><i class="ph ph-paper-plane-right"></i></button>
+          </form>
         </div>
 
         <div data-panel="disclose" class="panel" hidden>
