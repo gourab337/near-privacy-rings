@@ -361,7 +361,7 @@ Not done for the hackathon, and needed before this holds meaningful value:
 Built for [NEAR HACKATHON](https://nearhackathon.com) (tracks: `privacy`, `defi`, `open`).
 
 - **Other submission by the same person (rule Q-015):**
-  [near-intents-freeze-thesis](https://github.com/gourab337/near-intents-freeze-thesis),
+  [near-holders-claim-thesis](https://github.com/gourab337/near-holders-claim-thesis),
   an investment-thesis entry. The two projects are independent and share no code.
 - **Baseline (Q-001, Q-003):** none. Every commit in this repo was made inside the hackathon window.
 - **AI-written code (Q-005):** most of the code was written with Claude Code, directed and
