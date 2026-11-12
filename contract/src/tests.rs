@@ -298,3 +298,11 @@ fn open_ring_rejects_deposits() {
     ctx(GAS_ACCOUNT, 0);
     p.transact(a, e);
 }
+
+#[test]
+#[should_panic(expected = "attach at least STORAGE_FEE")]
+fn prepay_storage_needs_a_deposit() {
+    let mut p = pool(100);
+    ctx("mallory.near", 0);
+    p.prepay_storage(Some("x".repeat(64).parse().unwrap()));
+}

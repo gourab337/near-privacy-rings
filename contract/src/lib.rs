@@ -210,11 +210,14 @@ impl Pool {
         self.process(&args, &ext_data, false);
     }
 
-    /// Prepay storage for NEP-141 deposits (one STORAGE_FEE per deposit).
+    /// Prepay storage for NEP-141 deposits (one STORAGE_FEE per deposit). At least STORAGE_FEE
+    /// must be attached, so the credit record pays for its own storage.
     #[payable]
     pub fn prepay_storage(&mut self, account_id: Option<AccountId>) -> U128 {
+        let attached = env::attached_deposit().as_yoctonear();
+        require!(attached >= STORAGE_FEE, "attach at least STORAGE_FEE (0.01 NEAR)");
         let who = account_id.unwrap_or_else(env::predecessor_account_id);
-        let credit = self.storage_credit.get(&who).copied().unwrap_or(0) + env::attached_deposit().as_yoctonear();
+        let credit = self.storage_credit.get(&who).copied().unwrap_or(0) + attached;
         self.storage_credit.insert(who, credit);
         U128(credit)
     }

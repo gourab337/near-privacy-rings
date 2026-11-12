@@ -5,7 +5,7 @@ use near_sdk::store::LookupMap;
 use near_sdk::{near, require, IntoStorageKey};
 
 pub const LEVELS: usize = 20;
-pub const ROOT_HISTORY: u32 = 100;
+pub const ROOT_HISTORY: u32 = 1000;
 
 #[near(serializers = [borsh])]
 pub struct Tree {
