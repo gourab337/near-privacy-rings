@@ -1,13 +1,13 @@
 // An AI agent with a private wallet, driven by a model on NEAR AI Cloud (TEE-hosted).
 //
-//   NEAR_AI_API_KEY=... node agent/demo.mjs "Pay 0.01 NEAR to npr… for the dataset"
+//   NEAR_AI_API_KEY=... node agent/demo.ts "Pay 0.01 NEAR to npr… for the dataset"
 //
-// The model decides; the tools (core.js) hold the shielded key and enforce the caps, so a
+// The model decides; the tools (core.ts) hold the shielded key and enforce the caps, so a
 // confused or prompt-injected model cannot spend more than NPR_MAX_PAYMENT / NPR_MAX_TOTAL.
-// After each reply, nearai.js checks NEAR AI Cloud's signature over the exact bytes exchanged.
+// After each reply, nearai.ts checks NEAR AI Cloud's signature over the exact bytes exchanged.
 // NPR_NETWORK=mainnet adds the private_swap tool (Rhea).
-import { createAgentTools, loadAgentKey } from './tools.js';
-import { NEARAI, SYSTEM_PROMPT, runAgent } from './nearai.js';
+import { createAgentTools, loadAgentKey } from './tools.ts';
+import { NEARAI, SYSTEM_PROMPT, runAgent } from './nearai.ts';
 
 const KEY = process.env.NEAR_AI_API_KEY;
 if (!KEY) throw new Error('set NEAR_AI_API_KEY (https://cloud.near.ai, or the hackathon credits at https://nearbuilders.org/dashboard)');

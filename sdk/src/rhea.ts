@@ -12,9 +12,9 @@
 // Swap amounts are public, as on any AMM; who swapped is not.
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { actions, baseEncode } from 'near-api-js';
-import { Buffer, sha256, toBytes32BE } from './crypto.js';
-import { OPEN_FEE, STORAGE_FEE } from './wallet.js';
-import { retry, sendOpen, signerAccount, withMerge } from './near.js';
+import { Buffer, sha256, toBytes32BE } from './crypto.ts';
+import { OPEN_FEE, STORAGE_FEE } from './wallet.ts';
+import { retry, sendOpen, signerAccount, withMerge } from './near.ts';
 
 export const RHEA = {
   exchange: 'v2.ref-finance.near',

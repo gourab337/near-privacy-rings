@@ -5,7 +5,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { createAgentTools, loadAgentKey } from './tools.js';
+import { createAgentTools, loadAgentKey } from './tools.ts';
 
 const { tools } = await createAgentTools({ network: process.env.NPR_NETWORK ?? 'testnet', key: loadAgentKey(), maxPerPayment: process.env.NPR_MAX_PAYMENT ?? '1', maxTotal: process.env.NPR_MAX_TOTAL ?? '1' });
 const server = new Server({ name: 'near-privacy-rings', version: '0.1.0' }, { capabilities: { tools: {} } });

@@ -1,4 +1,4 @@
-import './shims/globals.js';
+import './shims/globals.ts';
 import '@phosphor-icons/web/regular';
 import './style.css';
 import '@near-wallet-selector/modal-ui/styles.css';
@@ -9,15 +9,15 @@ import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet';
 import { setupHereWallet } from '@near-wallet-selector/here-wallet';
 import { setupIntearWallet } from '@near-wallet-selector/intear-wallet';
 import { actionCreators } from '@near-js/transactions';
-import { Buffer, initCrypto, FIELD_SIZE, sha256, toBytes32BE, Keypair, Note, assetId, ShieldedWallet, OPEN_FEE, STORAGE_FEE, verifyReceipt, encodeJson, decodeJson } from '../../sdk/src/index.js';
-import { poolClient, retry, sendOpen, withMerge } from '../../sdk/src/near.js';
-import { RHEA, HOP_GAS_MONEY, quote, minOut, privateSwap, sweep, findHops, newHopIndex } from '../../sdk/src/rhea.js';
-import { createTools } from '../../agent/core.js';
-import { NEARAI, SYSTEM_PROMPT, runAgent } from '../../agent/nearai.js';
+import { Buffer, initCrypto, FIELD_SIZE, sha256, toBytes32BE, Keypair, Note, assetId, ShieldedWallet, OPEN_FEE, STORAGE_FEE, verifyReceipt, encodeJson, decodeJson } from '../../sdk/src/index.ts';
+import { poolClient, retry, sendOpen, withMerge } from '../../sdk/src/near.ts';
+import { RHEA, HOP_GAS_MONEY, quote, minOut, privateSwap, sweep, findHops, newHopIndex } from '../../sdk/src/rhea.ts';
+import { createTools } from '../../agent/core.ts';
+import { NEARAI, SYSTEM_PROMPT, runAgent } from '../../agent/nearai.ts';
 import { siNear } from 'simple-icons';
-import { seal, open as openVault } from './vault.js';
-import { xchainHtml, wireXchain } from './xchain.js';
-import { SOURCES } from '../../sdk/src/intents.js';
+import { seal, open as openVault } from './vault.ts';
+import { xchainHtml, wireXchain } from './xchain.ts';
+import { SOURCES } from '../../sdk/src/intents.ts';
 
 // the official NEAR mark (Simple Icons), drawn in currentColor
 const NEAR_LOGO = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="${siNear.path}"/></svg>`;
@@ -649,7 +649,7 @@ async function recoverHops() {
 
 // ------------------------------------------------------------------ AI agent with a private wallet
 // The agent has its own shielded key, derived from the user's (so a key backup covers it). A model
-// in a TEE on NEAR AI Cloud decides; agent/core.js holds the key and enforces the limits.
+// in a TEE on NEAR AI Cloud decides; agent/core.ts holds the key and enforces the limits.
 const AGENT_HOPS = `npr:rhea:agent:${ns}`;
 const NEARAI_KEY = 'npr:nearai-key'; // the visitor's own API key, this browser only
 let agentWallet = null, agentTools = null, agentMessages = null, teeKey = null;
@@ -756,13 +756,13 @@ async function onAgent(form) {
     try { await sync(); } catch {}
   }
 }
-/** Hardware attestation of the model's signing key (agent/attestation.js, loaded on demand). */
+/** Hardware attestation of the model's signing key (agent/attestation.ts, loaded on demand). */
 async function verifyTee(address) {
   const badge = $('#tee-badge');
   $('span', badge).textContent = 'Verifying the TEE hardware…';
   badge.className = 'tee-badge busy';
   try {
-    const { verifyAttestation } = await import('../../agent/attestation.js');
+    const { verifyAttestation } = await import('../../agent/attestation.ts');
     if (!address) {
       const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex');
       const r = await (await fetch(`${NEARAI.base}/attestation/report?model=${encodeURIComponent(NEARAI.model)}&nonce=${nonce}&signing_algo=ed25519`)).json();

@@ -29,4 +29,4 @@ circuits:           ## recompile the circuit and check committed keys match it
 	./scripts/build-circuits.sh
 
 e2e-testnet:        ## full demo on testnet (see README for env vars)
-	node scripts/e2e.mjs
+	node scripts/e2e.ts

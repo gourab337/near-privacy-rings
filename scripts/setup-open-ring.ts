@@ -3,14 +3,14 @@
 // Those keys are meant to be public: they cannot move funds, attach NEAR, or call
 // anything else. Anyone may sign an anonymous transaction with them.
 //
-//   node scripts/setup-open-ring.mjs <network> <pool> <gasAccount> <funder> [NEAR=1] [keys=8]
+//   node scripts/setup-open-ring.ts <network> <pool> <gasAccount> <funder> [NEAR=1] [keys=8]
 //
 // <funder> must be the parent of <gasAccount>; its key is read from ~/.near-credentials.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { KeyPair, actions } from '../sdk/node_modules/near-api-js/lib/index.js';
-import { poolClient, signerAccount } from '../sdk/src/near.js';
+import { poolClient, signerAccount } from '../sdk/src/near.ts';
 
 const [network, pool, gasAccount, funder, near = '1', count = '8'] = process.argv.slice(2);
 if (!funder) throw new Error('usage: setup-open-ring.mjs <network> <pool> <gasAccount> <funder> [NEAR] [keys]');

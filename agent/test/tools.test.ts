@@ -1,8 +1,8 @@
 // The agent tools against an in-memory pool, with real proofs.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { initCrypto, Keypair, ShieldedWallet } from '../../sdk/src/index.js';
-import { createAgentTools, toYocto } from '../tools.js';
+import { initCrypto, Keypair, ShieldedWallet } from '../../sdk/src/index.ts';
+import { createAgentTools, toYocto } from '../tools.ts';
 
 await initCrypto();
 after(() => globalThis.curve_bn128?.terminate());

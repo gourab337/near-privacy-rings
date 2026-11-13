@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "module": "nodenext", "moduleResolution": "nodenext" },
+  "include": ["sdk/src", "sdk/test", "agent/*.ts", "agent/test", "relayer", "scripts", "types"]
+}

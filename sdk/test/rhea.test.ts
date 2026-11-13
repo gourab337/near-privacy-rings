@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { KeyPair } from 'near-api-js';
-import { initCrypto, Keypair } from '../src/index.js';
-import { hopKey, minOut, newHopIndex } from '../src/rhea.js';
+import { initCrypto, Keypair } from '../src/index.ts';
+import { hopKey, minOut, newHopIndex } from '../src/rhea.ts';
 
 test('hop accounts are derived from the shielded key, recoverable and unlinkable', async () => {
   await initCrypto();

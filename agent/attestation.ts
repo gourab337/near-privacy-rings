@@ -11,7 +11,7 @@
 // unattested log), that the GPUs are physically attached to that VM (they share only the
 // nonce), or that the compose itself is safe (that needs a review of its pinned images).
 import dcap from '@phala/dcap-qvl';
-import { NEARAI } from './nearai.js';
+import { NEARAI } from './nearai.ts';
 
 const hex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
 const unhex = (s) => Uint8Array.from(String(s).replace(/^0x/, '').match(/../g) ?? [], (h) => parseInt(h, 16));
@@ -68,7 +68,7 @@ export async function verifyAttestation({ base = NEARAI.base, model = NEARAI.mod
 
   // 4. NVIDIA GPU evidence (Node only: NRAS rejects browser requests)
   if (isBrowser) {
-    add('NVIDIA GPU attestation', null, "not run in the browser (NVIDIA's service blocks it); run node agent/verify-tee.mjs");
+    add('NVIDIA GPU attestation', null, "not run in the browser (NVIDIA's service blocks it); run node agent/verify-tee.ts");
   } else {
     try {
       const payload = JSON.parse(att.nvidia_payload);

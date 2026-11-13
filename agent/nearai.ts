@@ -2,7 +2,7 @@
 //
 // Models on NEAR AI Cloud run inside TEEs. After each reply we fetch the signature NEAR AI
 // Cloud publishes for that completion and check it over the exact request and response bytes.
-// That shows which key signed the reply; attestation.js checks that the key lives in a TEE.
+// That shows which key signed the reply; attestation.ts checks that the key lives in a TEE.
 import { ed25519 } from '@noble/curves/ed25519.js';
 
 export const NEARAI = { base: 'https://cloud-api.near.ai/v1', model: 'z-ai/glm-5.3-flash' };

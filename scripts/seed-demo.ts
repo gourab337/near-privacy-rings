@@ -5,13 +5,13 @@
 // NEAR; that is the point (a visitor starts with a balance, like Helius's demo). Never
 // seed a mainnet demo this way.
 //
-//   node scripts/seed-demo.mjs <pool> <sessions> <NEAR per session> <funder> [<funder>...]
+//   node scripts/seed-demo.ts <pool> <sessions> <NEAR per session> <funder> [<funder>...]
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { KeyPair } from '../sdk/node_modules/near-api-js/lib/index.js';
-import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.js';
-import { poolClient, signerAccount, send } from '../sdk/src/near.js';
+import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.ts';
+import { poolClient, signerAccount, send } from '../sdk/src/near.ts';
 
 const [pool, n, perNear, ...funders] = process.argv.slice(2);
 if (!funders.length) throw new Error('usage: seed-demo.mjs <pool> <sessions> <NEAR per session> <funder>...');

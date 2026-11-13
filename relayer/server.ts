@@ -2,10 +2,10 @@
 // user's account never appears on-chain. Paid by the public `fee` in the proof's ext data.
 //
 //   NPR_NETWORK=testnet NPR_CONTRACT=pool.x.testnet RELAYER_ACCOUNT_ID=relayer.x.testnet \
-//   RELAYER_PRIVATE_KEY=ed25519:... node relayer/server.js
+//   RELAYER_PRIVATE_KEY=ed25519:... node relayer/server.ts
 import http from 'node:http';
-import { poolClient, signerAccount, send } from '../sdk/src/near.js';
-import { STORAGE_FEE } from '../sdk/src/wallet.js';
+import { poolClient, signerAccount, send } from '../sdk/src/near.ts';
+import { STORAGE_FEE } from '../sdk/src/wallet.ts';
 
 const { NPR_NETWORK = 'testnet', NPR_CONTRACT, RELAYER_ACCOUNT_ID, RELAYER_PRIVATE_KEY, PORT = 8787 } = process.env;
 // minimum fee per token in its smallest unit; tokens absent here are refused when a fee is due

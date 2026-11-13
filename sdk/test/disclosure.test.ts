@@ -1,7 +1,7 @@
 // Viewing keys and payment receipts, with real proofs against an in-memory pool.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { initCrypto, Keypair, ShieldedWallet, verifyReceipt } from '../src/index.js';
+import { initCrypto, Keypair, ShieldedWallet, verifyReceipt } from '../src/index.ts';
 
 await initCrypto();
 // snarkjs keeps worker threads alive; stop them so the test process can exit

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { initCrypto, poseidon, Keypair, Note, MerkleTree, assetId, extDataHash, FIELD_SIZE } from '../src/crypto.js';
+import { initCrypto, poseidon, Keypair, Note, MerkleTree, assetId, extDataHash, FIELD_SIZE } from '../src/crypto.ts';
 
 await initCrypto();
 const fixtures = JSON.parse(fs.readFileSync(new URL('../../contract/tests/fixtures/dev.json', import.meta.url)));

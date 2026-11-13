@@ -1,11 +1,11 @@
-// Private payment tools for AI agents, over a shielded wallet. Runs in Node (tools.js, the
+// Private payment tools for AI agents, over a shielded wallet. Runs in Node (tools.ts, the
 // MCP server) and in the browser (the app's Agent tab).
 //
 // The tools hold the shielded key and enforce the spending caps, so a confused or
 // prompt-injected model cannot spend more than the operator allows. Payments go through the
-// open ring (no NEAR account, no gas, no relayer); swaps go through Rhea (sdk/src/rhea.js).
-import { OPEN_FEE, verifyReceipt } from '../sdk/src/index.js';
-import { RHEA, quote, minOut, privateSwap, newHopIndex } from '../sdk/src/rhea.js';
+// open ring (no NEAR account, no gas, no relayer); swaps go through Rhea (sdk/src/rhea.ts).
+import { OPEN_FEE, verifyReceipt } from '../sdk/src/index.ts';
+import { RHEA, quote, minOut, privateSwap, newHopIndex } from '../sdk/src/rhea.ts';
 
 const YOCTO = 10n ** 24n;
 export function toYocto(near) {

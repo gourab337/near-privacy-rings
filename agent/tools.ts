@@ -1,18 +1,18 @@
 // Private payments for AI agents.
 //
-// An agent gets a shielded balance and payment tools (core.js). It needs no NEAR account, no gas and
+// An agent gets a shielded balance and payment tools (core.ts). It needs no NEAR account, no gas and
 // no relayer: payments are proven locally and submitted through the pool's open ring
 // (published function-call keys, see README). The only secret is the shielded key.
 import fs from 'node:fs';
-import { initCrypto, Keypair, ShieldedWallet, OPEN_FEE } from '../sdk/src/index.js';
-import { poolClient, sendOpen } from '../sdk/src/near.js';
-import { createTools, toYocto, fromYocto } from './core.js';
+import { initCrypto, Keypair, ShieldedWallet, OPEN_FEE } from '../sdk/src/index.ts';
+import { poolClient, sendOpen } from '../sdk/src/near.ts';
+import { createTools, toYocto, fromYocto } from './core.ts';
 
 export { toYocto, fromYocto, OPEN_FEE };
 const ROOT = new URL('..', import.meta.url).pathname;
 
 /**
- * Node setup of the agent tools (see core.js for what they do).
+ * Node setup of the agent tools (see core.ts for what they do).
  * @param {object} o
  * @param {string} o.network        testnet | mainnet (mainnet adds private_swap on Rhea)
  * @param {string} o.key            shielded private key (hex)

@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Private payments for AI agents: MCP tools over a shielded balance, no NEAR account needed",
   "bin": {
-    "npr-agent": "mcp.js"
+    "npr-agent": "mcp.ts"
   },
   "scripts": {
-    "test": "node --test --test-timeout=120000 test/*.test.js"
+    "test": "node --test --test-timeout=120000 test/*.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",

@@ -1,11 +1,11 @@
 // Verifies that the key signing a NEAR AI Cloud model's replies lives in a genuine TEE
 // (Intel TDX quote, fresh nonce, pinned compose, NVIDIA GPU). No API key needed.
 //
-//   node agent/verify-tee.mjs [model] [signing address]
+//   node agent/verify-tee.ts [model] [signing address]
 //
 // Without a signing address it checks every attested key the model currently has.
-import { NEARAI } from './nearai.js';
-import { verifyAttestation } from './attestation.js';
+import { NEARAI } from './nearai.ts';
+import { verifyAttestation } from './attestation.ts';
 
 const model = process.argv[2] ?? NEARAI.model;
 let keys = process.argv[3] ? [process.argv[3]] : [];

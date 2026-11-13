@@ -29,15 +29,15 @@ Optional: `make test-sandbox` runs the same flow on a local NEAR sandbox and pri
 | `circuits/src/transaction.circom` | The circuit: 2 inputs, 2 outputs, hidden amount and asset |
 | `contract/src/lib.rs` | Pool contract: `transact`, `swap`, `ft_on_transfer`, `claim_failed` |
 | `contract/src/verifier.rs` | Groth16 verification with `alt_bn128` host functions |
-| `sdk/src/wallet.js` | Shielded wallet: sync, deposit, transfer, withdraw, swap offers |
-| `sdk/src/rhea.js` | Private swaps on Rhea (mainnet) through a single-use account; `sweep` recovers one |
-| `sdk/src/intents.js`, `app/src/xchain.js` | Deposits from any chain and payment links through NEAR Intents (1Click) |
-| `agent/core.js`, `agent/tools.js`, `agent/mcp.js` | Private payments for AI agents: tools (also used by the app's Agent tab) and an MCP server |
-| `agent/nearai.js`, `agent/attestation.js` | NEAR AI Cloud client with reply-signature checks; TEE attestation checks (`node agent/verify-tee.mjs`, no key needed) |
-| `agent/demo.mjs` | The same tools driven by a model on NEAR AI Cloud (needs an API key) |
-| `relayer/server.js` | Relayer for anonymous submission (fallback, and for tokens other than NEAR) |
+| `sdk/src/wallet.ts` | Shielded wallet: sync, deposit, transfer, withdraw, swap offers |
+| `sdk/src/rhea.ts` | Private swaps on Rhea (mainnet) through a single-use account; `sweep` recovers one |
+| `sdk/src/intents.ts`, `app/src/xchain.ts` | Deposits from any chain and payment links through NEAR Intents (1Click) |
+| `agent/core.ts`, `agent/tools.ts`, `agent/mcp.ts` | Private payments for AI agents: tools (also used by the app's Agent tab) and an MCP server |
+| `agent/nearai.ts`, `agent/attestation.ts` | NEAR AI Cloud client with reply-signature checks; TEE attestation checks (`node agent/verify-tee.ts`, no key needed) |
+| `agent/demo.ts` | The same tools driven by a model on NEAR AI Cloud (needs an API key) |
+| `relayer/server.ts` | Relayer for anonymous submission (fallback, and for tokens other than NEAR) |
 | `open-ring/testnet.json` | Function-call keys published on purpose (see below) |
-| `scripts/setup-open-ring.mjs` | Creates the gas account and its keys |
+| `scripts/setup-open-ring.ts` | Creates the gas account and its keys |
 | `app/` | Web app; proofs are generated in the browser (app.nearprivacyrings.xyz) |
 | `site/` | Landing page and walkthrough video (nearprivacyrings.xyz) |
 | `ceremony/` | Trusted-setup tooling and the transcript of the mainnet key |
@@ -58,7 +58,7 @@ balance. They hold testnet NEAR only.
 
 ## What is not claimed
 
-- `agent/attestation.js` verifies the TDX quote, key binding, nonce and compose hash of the
+- `agent/attestation.ts` verifies the TDX quote, key binding, nonce and compose hash of the
   model's signing key (and NVIDIA GPU evidence in Node). It does not prove which model
   weights run, and it does not check the NRAS JWT signature.
 - No human audit. The security review was done by an AI agent.

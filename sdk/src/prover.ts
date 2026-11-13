@@ -1,6 +1,6 @@
 // Builds circuit inputs for a 2-in/2-out shielded transaction and proves it.
 import * as snarkjs from 'snarkjs';
-import { FIELD_SIZE, Keypair, Note, extDataHash, toBytes32LE } from './crypto.js';
+import { FIELD_SIZE, Keypair, Note, extDataHash, toBytes32LE } from './crypto.ts';
 
 export const N_INS = 2;
 export const N_OUTS = 2;

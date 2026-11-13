@@ -1,0 +1,13 @@
+{
+  "name": "near-privacy-rings",
+  "private": true,
+  "type": "module",
+  "description": "Type checking for the SDK, agent, app, relayer and scripts (all TypeScript, run directly by Node and Vite)",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p app/tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "5.9"
+  }
+}

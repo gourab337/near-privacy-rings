@@ -1,15 +1,15 @@
 // End-to-end demo against a deployed pool (testnet or mainnet).
 //
 //   NPR_NETWORK=testnet NPR_CONTRACT=pool.x.testnet ALICE=x.testnet BOB=bob.x.testnet \
-//   RELAYER_URL=http://localhost:8787 node scripts/e2e.mjs
+//   RELAYER_URL=http://localhost:8787 node scripts/e2e.ts
 //
 // Signing keys are read from ~/.near-credentials/<network>/<account>.json.
 // Shielded keys are created fresh each run (printed so the run can be inspected).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { initCrypto, Keypair, ShieldedWallet, OPEN_FEE } from '../sdk/src/index.js';
-import { blockHeight, poolClient, signerAccount, send, sendOpen } from '../sdk/src/near.js';
+import { initCrypto, Keypair, ShieldedWallet, OPEN_FEE } from '../sdk/src/index.ts';
+import { blockHeight, poolClient, signerAccount, send, sendOpen } from '../sdk/src/near.ts';
 
 const env = process.env;
 const NETWORK = env.NPR_NETWORK ?? 'testnet';

@@ -2,8 +2,8 @@
 // (dev zkey only). Every call spec is "applied" locally the way the contract would.
 import fs from 'node:fs';
 import * as snarkjs from '../sdk/node_modules/snarkjs/main.js';
-import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.js';
-import { MerkleTree } from '../sdk/src/crypto.js';
+import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.ts';
+import { MerkleTree } from '../sdk/src/crypto.ts';
 
 await initCrypto();
 // NPR_KEYSET=mainnet writes contract/tests/fixtures/mainnet.json (used by `cargo test --features mainnet`)

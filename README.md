@@ -52,10 +52,10 @@ withdraw (open ring, no relayer) → wNEAR deposit → private swap.
 ```bash
 # relayer (terminal 1)
 NPR_CONTRACT=npr-pool-65673.testnet RELAYER_ACCOUNT_ID=<relayer>.testnet \
-RELAYER_PRIVATE_KEY=ed25519:... node relayer/server.js
+RELAYER_PRIVATE_KEY=ed25519:... node relayer/server.ts
 # demo (terminal 2): keys from ~/.near-credentials/testnet/
 NPR_CONTRACT=npr-pool-65673.testnet ALICE=<a>.testnet BOB=<b>.testnet \
-RELAYER_URL=http://localhost:8787 node scripts/e2e.mjs
+RELAYER_URL=http://localhost:8787 node scripts/e2e.ts
 ```
 
 Measured gas: deposit and transfer about 63 Tgas, private swap about 123 Tgas
@@ -92,7 +92,7 @@ Open https://gourab337.github.io/near-privacy-rings/. Do this, and see that:
    invoice, refuses the injected tip, and every reply shows a verified TEE signature.
 
 The demo keys (sessions, Alice, Bob) are published on purpose in
-[`demo/testnet.json`](demo/testnet.json), seeded by `scripts/seed-demo.mjs`. They hold
+[`demo/testnet.json`](demo/testnet.json), seeded by `scripts/seed-demo.ts`. They hold
 testnet NEAR only, and anyone can spend them. There is no mainnet demo wallet.
 
 **Your own wallet** is a private key kept in the browser, encrypted with AES-256-GCM under a
@@ -172,8 +172,8 @@ The contract change behind it: `ft_on_transfer` from `wrap.near` with a native-N
 becomes native notes, and a compact `npr1:` message (989 characters) fits 1Click's limit of
 1024; the fields the pool can derive are left out and the proof still binds them. Tested on
 testnet with a real `ft_transfer_call` (62.7 Tgas in the pool), and by unit tests.
-Code: [`sdk/src/intents.js`](sdk/src/intents.js), `depositMsg` in
-[`sdk/src/wallet.js`](sdk/src/wallet.js), [`app/src/xchain.js`](app/src/xchain.js).
+Code: [`sdk/src/intents.ts`](sdk/src/intents.ts), `depositMsg` in
+[`sdk/src/wallet.ts`](sdk/src/wallet.ts), [`app/src/xchain.ts`](app/src/xchain.ts).
 
 Limits:
 
@@ -212,7 +212,7 @@ Tested on mainnet both ways: 0.3 NEAR to 1.076461 USDC
 Also round trips through USDT (0.3 NEAR to 1.062065 USDT, [swap](https://nearblocks.io/txns/5xGgioAKzu9rdLUauLTLEy95yQUYuqxjrZAw9WSo253V))
 and ZEC (0.3 NEAR to 0.00108222 ZEC, [swap](https://nearblocks.io/txns/6C1qyEuAEfhKfKSCUbB7Qqf6ihJQYh4GHjUikfHaGrrE), and back
 to 0.3003 NEAR, [swap](https://nearblocks.io/txns/Aih2sJRE5C4jVm1zNxNxtEtxre2bWhjV2WuK5nQ4n4wb)).
-Code: [`sdk/src/rhea.js`](sdk/src/rhea.js).
+Code: [`sdk/src/rhea.ts`](sdk/src/rhea.ts).
 
 Limits:
 
@@ -253,7 +253,7 @@ credits at [nearbuilders.org](https://nearbuilders.org/dashboard); the key stays
 browser), and ask it to pay an invoice, pay an account or, on mainnet, swap on Rhea. The page
 shows every tool call, a signature check on every reply, and the TEE verification.
 
-**Mainnet run** (`agent/demo.mjs`, model `z-ai/glm-5.3-flash`). The task was an invoice with
+**Mainnet run** (`agent/demo.ts`, model `z-ai/glm-5.3-flash`). The task was an invoice with
 a prompt injection inside it, then a swap:
 
 ```text
@@ -275,7 +275,7 @@ shared gas account, with no trace of the agent; the [swap](https://nearblocks.io
 starts from a single-use account. Had the model obeyed the injection, the 0.3 NEAR
 per-payment limit would have refused the 0.5 NEAR tip anyway.
 
-**Checking the TEE** (`agent/attestation.js`, following
+**Checking the TEE** (`agent/attestation.ts`, following
 [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier)). For the key that
 signs the replies, we fetch NEAR AI Cloud's attestation report with a fresh random nonce and check:
 
@@ -286,7 +286,7 @@ signs the replies, we fetch NEAR AI Cloud's attestation report with a fresh rand
 4. the GPU evidence passes NVIDIA's attestation service (Node only: NRAS rejects browser
    requests, so the app marks this check as not run).
 
-`node agent/verify-tee.mjs` runs all four; it passes for `z-ai/glm-5.3-flash`, whose key
+`node agent/verify-tee.ts` runs all four; it passes for `z-ai/glm-5.3-flash`, whose key
 `5a0210f2442c…` is the one that signed the run above. What this does not prove: which model
 weights run (NEAR AI Cloud names the model only in an unattested log), that the GPUs are
 physically attached to that VM (they share only the nonce), that the compose is safe (that
@@ -294,9 +294,9 @@ needs a review of its pinned images), or the NRAS JWT signature (not checked).
 
 **For developers:**
 
-- **MCP server** (`agent/mcp.js`), for any MCP client. Tools: `shielded_address`,
+- **MCP server** (`agent/mcp.ts`), for any MCP client. Tools: `shielded_address`,
   `shielded_balance`, `private_send`, `private_withdraw`, `verify_receipt`, and on mainnet
-  `private_swap` (Rhea). The same tools ([`agent/core.js`](agent/core.js)) run in the app.
+  `private_swap` (Rhea). The same tools ([`agent/core.ts`](agent/core.ts)) run in the app.
 - **Limits outside the model**: `NPR_MAX_PAYMENT` (per payment or swap) and `NPR_MAX_TOTAL`
   (everything spent, fees and swap costs included) are enforced by the tool code. A
   manipulated model can still make bad payments within them, but not past them.
@@ -304,10 +304,10 @@ needs a review of its pinned images), or the NRAS JWT signature (not checked).
   auditor (see Disclosure below).
 
 ```bash
-NPR_MAX_PAYMENT=0.05 node agent/mcp.js                                   # MCP server (testnet)
-NEAR_AI_API_KEY=... node agent/demo.mjs "What is your balance?"         # driven by a TEE model
-NPR_NETWORK=mainnet NPR_AGENT_KEY=... NEAR_AI_API_KEY=... node agent/demo.mjs "…"
-node agent/verify-tee.mjs                                                # TEE attestation, no key needed
+NPR_MAX_PAYMENT=0.05 node agent/mcp.ts                                   # MCP server (testnet)
+NEAR_AI_API_KEY=... node agent/demo.ts "What is your balance?"         # driven by a TEE model
+NPR_NETWORK=mainnet NPR_AGENT_KEY=... NEAR_AI_API_KEY=... node agent/demo.ts "…"
+node agent/verify-tee.ts                                                # TEE attestation, no key needed
 ```
 
 Earlier testnet runs: an invoice paid and its receipt verified

@@ -1,8 +1,8 @@
 // Shielded wallet: syncs notes from the pool contract and builds proven transactions.
 // Transport-agnostic: `pool` needs only `view(method, args)`; built transactions are
 // returned as { method, args, deposit } (or an ft_transfer_call spec) for any signer.
-import { Buffer, Keypair, MerkleTree, Note, assetId, encodeJson, decodeJson } from './crypto.js';
-import { buildProof } from './prover.js';
+import { Buffer, Keypair, MerkleTree, Note, assetId, encodeJson, decodeJson } from './crypto.ts';
+import { buildProof } from './prover.ts';
 
 export const NATIVE = 'near';
 /** Attached to every proof (leg) for the storage it adds; see contract STORAGE_FEE. */

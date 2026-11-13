@@ -1,6 +1,6 @@
 // Deposit from any chain (NEAR Intents 1Click): one widget for the Deposit tab (notes for this
-// wallet) and for payment links (notes for someone else's private address). See sdk/src/intents.js.
-import { SOURCES, sourceInfo, quoteDeposit, depositStatus, walletLink, formatUnits, refundError } from '../../sdk/src/intents.js';
+// wallet) and for payment links (notes for someone else's private address). See sdk/src/intents.ts.
+import { SOURCES, sourceInfo, quoteDeposit, depositStatus, walletLink, formatUnits, refundError } from '../../sdk/src/intents.ts';
 
 const STATUS = {
   PENDING_DEPOSIT: 'Waiting for your deposit…',
