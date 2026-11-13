@@ -400,6 +400,10 @@ Not done for the hackathon, and needed before this holds meaningful value:
 6. **An indexer**, so wallets do not scan every leaf.
 7. **Rhea swaps inside the contract**, settling the swap and the new note in one transaction,
    to drop the single-use account and most of its 0.14 NEAR cost.
+8. **A STARK-based pool.** Groth16 needs a trusted setup and is not quantum-safe: a quantum
+   computer could forge a proof and spend any note. A STARK pool (a STARK-friendly hash,
+   verified in the contract) needs no trusted setup and makes spending quantum-safe.
+   Notes would move to it by withdrawing and depositing again.
 
 ## Hackathon disclosures
 
