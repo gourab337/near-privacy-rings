@@ -1200,7 +1200,7 @@ async function payPage(artifacts: Artifacts) {
   const dlg = $<HTMLDialogElement>('#gate');
   dlg.innerHTML = `<div class="gate pay">${MARK}
     <h2>Pay privately</h2>
-    <p>To <span class="mono">${esc(short(to, 10, 8))}</span>. Pay from Solana, Base, Ethereum, Arbitrum or Bitcoin, with no NEAR account. On NEAR, nobody can see who was paid or how much.</p>
+    <p>To <span class="mono">${esc(short(to, 10, 8))}</span>. Pay with USDC, USDT, SOL, ETH or BTC from Solana, Base, Ethereum, Arbitrum or Bitcoin, with no NEAR account. On NEAR, nobody can see who was paid or how much.</p>
     <form class="panel xchain" novalidate></form>
     <button type="button" class="link" data-open>Open the app instead</button></div>`;
   dlg.oncancel = (e) => e.preventDefault();

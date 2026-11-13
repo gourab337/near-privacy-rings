@@ -24,7 +24,7 @@ export interface DepositStatus extends OneClickStatus {
 /** A form rendered from xchainHtml: its named controls. */
 export interface XchainForm extends HTMLFormElement {
   xamount: HTMLInputElement;
-  xsource: HTMLSelectElement;
+  xsource: HTMLInputElement;
   xrefund: HTMLInputElement;
 }
 export interface XchainOptions {
@@ -51,6 +51,13 @@ const STATUS: Record<string, string> = {
 const DONE = new Set<string | undefined>(['SUCCESS', 'REFUNDED', 'FAILED']);
 const CHIPS = ['0.5', '1', '5'];
 const MIN = 10n ** 23n; // 0.1 NEAR: below this, bridge minimums make quotes fail
+// token and chain marks for the source picker (brand colours; the Solana mark is drawn inline)
+const SOL_MARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 5.5h13l-3 3H4zM4 10.5h13l3 3H7zM7 15.5h13l-3 3H4z"/></svg>';
+const TOKEN: Record<string, [string, string]> = { SOL: ['sol', SOL_MARK], USDC: ['usdc', '<i class="ph ph-currency-dollar"></i>'], USDT: ['usdt', '<b>₮</b>'], ETH: ['eth', '<i class="ph ph-currency-eth"></i>'], BTC: ['btc', '<i class="ph ph-currency-btc"></i>'] };
+// menu order (indices into SOURCES): stablecoins first; the first is the default
+const ORDER = [7, 3, 8, 9, 1, 0, 4, 2, 5, 6];
+const srcLogo = (i: number) => { const s = SOURCES[i], [cls, mark] = TOKEN[s.symbol]; return `<span class="x-logo ${cls}">${mark}<span class="x-badge ${s.chain.toLowerCase()}" title="${s.chain}"></span></span>`; };
+const srcBtn = (i: number) => `${srcLogo(i)}<span>${SOURCES[i].symbol}</span><i class="ph ph-caret-down caret"></i>`;
 const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]);
 
 export function xchainHtml({ amount = '', title = 'You receive privately', nearLogo, request = false }: { amount?: string; title?: string; nearLogo: string; request?: boolean }) {
@@ -63,7 +70,8 @@ export function xchainHtml({ amount = '', title = 'You receive privately', nearL
     <div class="arrow" aria-hidden="true"><i class="ph ph-arrow-up"></i></div>
     <div class="box">
       <label class="box-top" for="x-src"><span>You pay with</span><span class="x-usd"></span></label>
-      <div class="box-row"><span class="amount out x-in">–</span><select id="x-src" name="xsource" class="x-src">${SOURCES.map((s, i) => `<option value="${i}">${s.symbol} · ${s.chain}</option>`).join('')}</select></div>
+      <div class="box-row"><span class="amount out x-in">–</span><button type="button" id="x-src" class="token pick x-src" aria-haspopup="listbox" aria-expanded="false">${srcBtn(ORDER[0])}</button><input type="hidden" name="xsource" value="${ORDER[0]}" /></div>
+      <ul class="x-menu" role="listbox" aria-label="Pay with" hidden>${ORDER.map((i) => `<li><button type="button" role="option" data-i="${i}" aria-selected="${i === ORDER[0]}">${srcLogo(i)}<span class="nm"><b>${SOURCES[i].symbol}</b><small>on ${SOURCES[i].chain}</small></span><i class="ph ph-check tick"></i></button></li>`).join('')}</ul>
     </div>
     <label class="x-refund"><span>Your <span class="x-chain">Solana</span> address, for refunds</span><input name="xrefund" autocomplete="off" spellcheck="false" /></label>
     <div class="fee-line x-fees"></div>
@@ -103,13 +111,31 @@ export function wireXchain(form: XchainForm, opts: XchainOptions) {
       $('.x-fees').innerHTML = row('Pool storage fee', '0.01 NEAR <small>included</small>') + row('NEAR Intents fee', '0.2% <small>included</small>') +
         row('Arrives', `~${Math.max(1, Math.round(q.timeEstimate / 60))} min after your deposit confirms`, 'fee-total');
     } catch (e) {
-      if (my === seq) $('.x-fees').innerHTML = row('Quote', esc((e as Error).message));
+      if (my !== seq) return;
+      // bridges have minimums ("try at least <yocto wNEAR>"): say it in NEAR
+      const min = /try at least (\d+)/.exec((e as Error).message)?.[1];
+      $('.x-fees').innerHTML = min ? row(`Minimum from ${esc(src().chain)}`, `${trim(fromUnits(((BigInt(min) - 1n) / 10n ** 22n) * 10n ** 22n), 2)} NEAR`) : row('Quote', esc((e as Error).message));
     }
   }
   let debounce: Timer | undefined;
   const reprice = () => { clearTimeout(debounce); debounce = setTimeout(price, 350); };
   form.xamount.addEventListener('input', () => { form.querySelectorAll<HTMLElement>('[data-xchips] .chip').forEach((c) => c.classList.toggle('on', c.dataset.v === form.xamount.value)); reprice(); });
-  form.xsource.addEventListener('change', () => { refreshChain(); reprice(); });
+  // source picker: a menu under the token button
+  const menu = $('.x-menu'), pick = $('#x-src');
+  const toggle = (open: boolean) => { menu.hidden = !open; pick.setAttribute('aria-expanded', String(open)); if (open) menu.querySelector<HTMLElement>('[aria-selected=true]')?.focus(); };
+  pick.addEventListener('click', () => toggle(menu.hidden));
+  menu.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest<HTMLElement>('[data-i]'); if (!b) return;
+    form.xsource.value = b.dataset.i!; pick.innerHTML = srcBtn(Number(b.dataset.i));
+    menu.querySelectorAll('[data-i]').forEach((o) => o.setAttribute('aria-selected', String(o === b)));
+    toggle(false); pick.focus(); refreshChain(); reprice();
+  });
+  document.addEventListener('click', (e) => { if (!menu.hidden && !menu.contains(e.target as Node) && !pick.contains(e.target as Node)) toggle(false); });
+  menu.addEventListener('keydown', (e) => {
+    const opts = [...menu.querySelectorAll<HTMLElement>('[data-i]')], i = opts.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'Escape') { toggle(false); pick.focus(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); opts[(i + (e.key === 'ArrowDown' ? 1 : opts.length - 1)) % opts.length].focus(); }
+  });
   $('[data-xchips]').addEventListener('click', (e) => { const b = (e.target as Element).closest<HTMLElement>('.chip'); if (!b) return; form.xamount.value = b.dataset.v!; form.xamount.dispatchEvent(new Event('input')); });
   $('.x-request')?.addEventListener('click', () => opts.onRequest?.(form.xamount.value.trim()));
 

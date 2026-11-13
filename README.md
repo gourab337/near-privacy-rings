@@ -152,7 +152,7 @@ What this does not solve, stated plainly:
 
 ## Deposits from any chain and payment links
 
-Deposit → **Any chain** lets someone with SOL, USDC, ETH or BTC on Solana, Base, Ethereum,
+Deposit → **Any chain** lets someone with USDC, USDT, SOL, ETH or BTC on Solana, Base, Ethereum,
 Arbitrum or Bitcoin fund a private NEAR balance, with no NEAR account and no bridging. The
 same flow powers **payment links**: "Copy a payment link" shares
 `app.nearprivacyrings.xyz/#pay=<private address>&amount=…`, and whoever opens it pays that

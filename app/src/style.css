@@ -242,6 +242,7 @@ dialog#gate[open] { animation: panel-in 0.3s var(--ease); }
 .gate .mark.big i:first-child { left: 5px; } .gate .mark.big i:last-child { left: 14px; border-color: var(--surface); }
 .gate input { background: var(--box); box-shadow: none; height: 46px; font-size: 15px; }
 .gate input:focus { box-shadow: inset 0 0 0 1.5px var(--muted); }
+.gate input.amount, .gate input.amount:focus { height: auto; background: none; box-shadow: none; padding: 0; font-size: 40px; border-radius: 0; }
 .gate-err { margin: 0 !important; min-height: 1px; color: var(--danger) !important; font-size: 13.5px !important; }
 .gate-err:empty { display: none; }
 .addr-line { color: var(--faint) !important; font-size: 13px !important; }
@@ -402,7 +403,46 @@ dialog#token-dialog[open] { animation: panel-in 0.25s var(--ease); }
 .gate .net-note .link { display: block; margin: 2px auto 0; padding: 4px; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 /* deposits from any chain */
 .dmode-off { display: none !important; }
-.xchain .x-src { width: auto; flex: none; height: 40px; padding: 0 12px; border-radius: 999px; font-weight: 600; font-size: 15px; background: var(--surface); }
+.xchain .box { position: relative; }
+.xchain .x-src { flex: none; }
+.x-logo { position: relative; flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 17px; }
+.x-logo svg { width: 15px; height: 15px; }
+.x-logo.sol { background: linear-gradient(135deg, #9945ff, #19fb9b); }
+.x-logo.usdc { background: #2775ca; }
+.x-logo.eth { background: #627eea; }
+.x-logo.btc { background: #f7931a; }
+.x-logo.usdt { background: #26a17b; }
+.x-logo b { font-size: 16px; font-weight: 700; }
+.x-badge { position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+.x-badge.solana { background: linear-gradient(135deg, #9945ff, #19fb9b); }
+.x-badge.base { background: #0052ff; }
+.x-badge.ethereum { background: #627eea; }
+.x-badge.arbitrum { background: #28a0f0; }
+.x-badge.bitcoin { background: #f7931a; }
+.x-menu { position: absolute; z-index: 20; right: 12px; top: calc(100% - 14px); width: min(260px, calc(100% - 24px)); list-style: none; margin: 0; padding: 6px; border-radius: 20px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), 0 24px 60px -16px rgb(0 0 0 / 0.55); max-height: min(480px, 70vh); overflow-y: auto; animation: x-pop 0.16s var(--ease); transform-origin: top right; }
+.x-menu button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 14px; text-align: left; transition: background-color 0.15s var(--ease); }
+.x-menu button:hover, .x-menu button:focus-visible { background: var(--box); outline: none; }
+.x-menu .x-logo { width: 30px; height: 30px; font-size: 18px; }
+.x-menu .x-logo svg { width: 17px; height: 17px; }
+.x-menu .x-badge { width: 14px; height: 14px; }
+.x-menu button:hover .x-badge, .x-menu button:focus-visible .x-badge { box-shadow: 0 0 0 2px var(--box); }
+.x-menu .nm { display: flex; align-items: baseline; gap: 6px; flex: 1; }
+.x-menu .nm b { font-size: 15.5px; font-weight: 600; }
+.x-menu .nm small { color: var(--muted); font-size: 12.5px; }
+.x-menu .tick { color: var(--green); font-size: 16px; visibility: hidden; }
+.x-menu [aria-selected=true] .tick { visibility: visible; }
+@keyframes x-pop { from { opacity: 0; transform: scale(0.96) translateY(-4px); } }
+/* "Any chain": a multichain gradient that catches the eye */
+.subseg [data-dmode=any] { position: relative; }
+.subseg [data-dmode=any] .x-glow { background: linear-gradient(90deg, #9945ff, #28a0f0 45%, #19fb9b 70%, #f7931a); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: x-shine 6s linear infinite; }
+.subseg [data-dmode=any]::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: linear-gradient(90deg, #9945ff, #28a0f0, #19fb9b, #f7931a, #9945ff); background-size: 300% 100%; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0.45; animation: x-shine 8s linear infinite; pointer-events: none; transition: opacity 0.2s var(--ease); }
+.subseg [data-dmode=any]:hover::before, .subseg [data-dmode=any].on::before { opacity: 1; }
+.subseg [data-dmode=any].on { background: linear-gradient(90deg, rgb(153 69 255 / 0.12), rgb(40 160 240 / 0.10), rgb(25 251 155 / 0.10)), var(--surface); }
+.subseg [data-dmode=any] .dots { display: inline-flex; margin-left: 6px; vertical-align: -1px; }
+.subseg [data-dmode=any] .dots i { width: 9px; height: 9px; border-radius: 50%; margin-left: -3px; box-shadow: 0 0 0 1.5px var(--box); }
+.subseg [data-dmode=any].on .dots i { box-shadow: 0 0 0 1.5px var(--surface); }
+@keyframes x-shine { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .subseg [data-dmode=any] .x-glow, .subseg [data-dmode=any]::before, .x-menu { animation: none; } }
 .xchain .x-in { font-size: 30px; }
 .xchain .x-refund { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); margin-top: 6px; }
 .xchain .x-request { height: 44px; border-radius: 18px; justify-content: center; }
