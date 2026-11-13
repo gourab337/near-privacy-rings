@@ -40,7 +40,8 @@ const NETWORK_STORE = 'npr:network';
 const NETWORK = (() => {
   let want = new URLSearchParams(location.search).get('network');
   try { want ??= localStorage.getItem(NETWORK_STORE); } catch {}
-  want ??= env.VITE_NETWORK ?? 'testnet';
+  // new visitors start on mainnet once it is live; testnet is one click away (header, or the first screen)
+  want ??= NETWORKS.mainnet.contract ? 'mainnet' : (env.VITE_NETWORK ?? 'testnet');
   return NETWORKS[want]?.contract ? want : 'testnet';
 })();
 const NET = NETWORKS[NETWORK];
@@ -900,7 +901,15 @@ async function onboard(artifacts) {
     <p>A private key lives in this browser and holds your private balance. It is separate from your NEAR account, which you only need to deposit.</p>
     <button type="button" class="primary" data-choice="own">Create private wallet</button>
     <button type="button" class="ghost wide" data-choice="restore">Restore from a saved key</button>
-    ${DEMO ? '<button type="button" class="ghost wide" data-choice="demo">Try a demo wallet <span class="muted">shared, testnet NEAR</span></button>' : ''}`, async () => ({ error: '' }), { locked: true });
+    ${DEMO ? '<button type="button" class="ghost wide" data-choice="demo">Try a demo wallet <span class="muted">shared, testnet NEAR</span></button>' : ''}
+    ${NETWORK === 'mainnet' ? '<p class="muted net-note">This wallet is for NEAR mainnet (real NEAR). <button type="button" class="link" data-choice="testnet">Just trying it? Use a free testnet demo</button></p>' : ''}`, async () => ({ error: '' }), { locked: true });
+  if (choice === 'testnet') {
+    try { localStorage.setItem(NETWORK_STORE, 'testnet'); } catch {}
+    const u = new URL(location.href); u.searchParams.delete('network');
+    history.replaceState(null, '', u.toString());
+    location.reload();
+    return new Promise(() => {});
+  }
   if (choice === 'demo') {
     const key = await pickDemoSession(artifacts);
     if (key) { store.set(KEY_STORE, { kind: 'demo', key }); return key; }

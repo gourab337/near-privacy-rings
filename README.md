@@ -12,9 +12,9 @@ It is inspired by Helius's [Solana Privacy Rings](https://github.com/helius-labs
 (launched on Solana mainnet on 2026-11-10). This repo is an independent NEAR implementation.
 It is not a port of their code.
 
-**Try it:** the app at https://app.nearprivacyrings.xyz opens on testnet with a
-pre-funded demo wallet; no wallet or setup needed. Switch to **Mainnet** at the top right for
-real NEAR, private swaps on Rhea and the AI agent. Website: https://nearprivacyrings.xyz.
+**Try it:** the app at https://app.nearprivacyrings.xyz opens on mainnet (real NEAR,
+private swaps on Rhea and the AI agent). To try it for free, pick "Use a free testnet demo" on
+the first screen, or **Testnet** at the top right: a pre-funded demo wallet, no setup needed. Website: https://nearprivacyrings.xyz.
 On X: [@ringsonnear](https://x.com/ringsonnear). **Demo video (2:20, narrated,
 mainnet):** [`site/walkthrough.mp4`](site/walkthrough.mp4).
 
