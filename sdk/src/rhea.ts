@@ -12,7 +12,7 @@
 // Swap amounts are public, as on any AMM; who swapped is not.
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { actions, baseEncode } from 'near-api-js';
-import type { Account, JsonRpcProvider, KeyPairString, Provider } from 'near-api-js';
+import type { Account, KeyPairString, Provider } from 'near-api-js';
 import { Buffer, sha256, toBytes32BE } from './crypto.ts';
 import type { AnyKeypair, Numeric } from './crypto.ts';
 import { OPEN_FEE, STORAGE_FEE } from './wallet.ts';
@@ -102,8 +102,7 @@ export function hopKey(keypair: AnyKeypair, n: number): HopKey {
 }
 
 const ftId = (t: string): string => (t === 'near' ? RHEA.wrap : t);
-// near-api-js reads `blockQuery`, not `finality` (see the report on it)
-const view = (provider: Provider, contractId: string, method: string, args: Record<string, unknown> = {}) => retry(() => provider.callFunction({ contractId, method, args, finality: 'final' } as Parameters<JsonRpcProvider['callFunction']>[0]));
+const view = (provider: Provider, contractId: string, method: string, args: Record<string, unknown> = {}) => retry(() => provider.callFunction({ contractId, method, args, blockQuery: { finality: 'final' } }));
 
 /** Rhea's on-chain quote for `amountIn` of `from` ('near' or a token id) into `to`. */
 export async function quote(provider: Provider, from: string, to: string, amountIn: Numeric): Promise<bigint> {

@@ -175,8 +175,8 @@ interface GateForm extends HTMLFormElement {
 const env = import.meta.env;
 const NETWORKS: Record<string, NetConfig> = {
   testnet: {
-    contract: env.VITE_TESTNET_CONTRACT ?? (env.VITE_NETWORK !== 'mainnet' && env.VITE_CONTRACT) ?? 'npr-pool-65673.testnet',
-    relayer: env.VITE_TESTNET_RELAYER_URL ?? (env.VITE_NETWORK !== 'mainnet' && env.VITE_RELAYER_URL) ?? 'http://localhost:8787',
+    contract: env.VITE_TESTNET_CONTRACT || (env.VITE_NETWORK !== 'mainnet' && env.VITE_CONTRACT) || 'npr-pool-65673.testnet',
+    relayer: env.VITE_TESTNET_RELAYER_URL || (env.VITE_NETWORK !== 'mainnet' && env.VITE_RELAYER_URL) || 'http://localhost:8787',
     rpc: 'https://rpc.testnet.fastnear.com', wrap: 'wrap.testnet', explorer: 'https://testnet.nearblocks.io', artifacts: './dev/',
   },
   mainnet: {
@@ -627,14 +627,13 @@ function showCode(label: string, code: string) {
 const HOP_STORE = `npr:rhea:${ns}`;
 const pendingHops = () => store.get<number[]>(HOP_STORE) ?? [];
 const rheaProvider = () => poolClient(CONTRACT, NETWORK, RPC).provider;
-type CallFunctionArgs = Parameters<ReturnType<typeof rheaProvider>['callFunction']>[0];
 let quoteTimer: Timer | undefined, lastQuote: { from: string; amt: bigint; q: bigint } | null = null;
 // token logos come from each token's on-chain metadata (ft_metadata.icon), loaded once
 const icons: Record<string, string> = {}, names: Record<string, string> = { near: 'NEAR' };
 async function loadIcons() {
   await Promise.all(Object.keys(RHEA.tokens).map(async (id) => {
     try {
-      const m = (await rheaProvider().callFunction<{ icon?: unknown; name?: unknown }>({ contractId: id, method: 'ft_metadata', args: {}, finality: 'final' } as CallFunctionArgs))!;
+      const m = (await rheaProvider().callFunction<{ icon?: unknown; name?: unknown }>({ contractId: id, method: 'ft_metadata', args: {}, blockQuery: { finality: 'final' } }))!;
       if (typeof m.icon === 'string' && m.icon.startsWith('data:image/')) icons[id] = m.icon;
       if (typeof m.name === 'string') names[id] = m.name;
     } catch {}
@@ -915,8 +914,9 @@ async function verifyTee(address?: string) {
       const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex');
       const r: AttestationReport = await (await fetch(`${NEARAI.base}/attestation/report?model=${encodeURIComponent(NEARAI.model)}&nonce=${nonce}&signing_algo=ed25519`)).json();
       address = r.model_attestations?.[0]?.signing_address;
+      if (!address) throw new Error('the model has no attested signing key');
     }
-    const v = await verifyAttestation({ model: NEARAI.model, signingAddress: address! });
+    const v = await verifyAttestation({ model: NEARAI.model, signingAddress: address });
     if (v.ok) teeKey = String(address).replace(/^0x/, '');
     badge.className = `tee-badge ${v.ok ? 'ok' : 'bad'}`;
     $('span', badge).textContent = v.ok ? `TEE verified: Intel TDX, key ${short(teeKey!, 6, 4)}` : 'TEE verification failed';

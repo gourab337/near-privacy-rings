@@ -28,8 +28,6 @@ export interface SendableCall {
   gas?: bigint;
 }
 
-type CallArgs = Parameters<JsonRpcProvider['callFunction']>[0];
-
 /** The parts of a transaction outcome that failure checks read. A status is a string or an object. */
 type Status = { Failure?: unknown } | undefined;
 export interface TxOutcome {
@@ -64,8 +62,7 @@ export function poolClient(contractId: string, network: string = 'testnet', rpcU
   return {
     contractId,
     provider,
-    // near-api-js reads `blockQuery`, not `finality`: see the cast (and the report on it)
-    view: (method: string, args: Record<string, unknown> = {}) => retry(() => provider.callFunction({ contractId, method, args, finality: 'final' } as CallArgs)),
+    view: (method: string, args: Record<string, unknown> = {}) => retry(() => provider.callFunction({ contractId, method, args, blockQuery: { finality: 'final' } })),
   };
 }
 

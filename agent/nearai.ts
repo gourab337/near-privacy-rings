@@ -60,10 +60,10 @@ export async function checkSignature({ base = NEARAI.base, apiKey, model, id, re
   for (let attempt = 0; attempt < 8; attempt++) {
     const r = await fetch(`${base}/signature/${id}?signing_algo=ed25519`, { headers: { authorization: `Bearer ${apiKey}`, accept: 'application/json' } });
     const s = r.ok ? await r.json() as SignatureResponse : null;
-    if (s?.signature && s.text) {
+    if (s?.signature && s.text && s.signing_address) {
       const hashes = `${await sha256hex(requestBytes)}:${await sha256hex(responseBytes)}`;
       const expected = s.signature_kind === 'provider_tee' ? `${model}:${hashes}` : s.signature_kind === 'gateway' ? hashes : null;
-      const base = { kind: s.signature_kind, address: String(s.signing_address).replace(/^0x/, '') };
+      const base = { kind: s.signature_kind, address: s.signing_address.replace(/^0x/, '') };
       if (s.text !== expected) return { ...base, ok: false, verdict: `signed text does not match the bytes we exchanged (${s.signature_kind})` };
       const ok = ed25519.verify(unhex(s.signature), enc.encode(s.text), unhex(s.signing_address));
       return { ...base, ok, verdict: ok ? `signed by ${s.signature_kind} key ${base.address.slice(0, 12)}… over these exact bytes` : 'bad signature' };
