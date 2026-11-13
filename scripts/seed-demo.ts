@@ -13,20 +13,23 @@ import { KeyPair } from '../sdk/node_modules/near-api-js/lib/index.js';
 import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.ts';
 import { poolClient, signerAccount, send } from '../sdk/src/near.ts';
 
+interface Person { account: string; key: string }
+interface DemoFile { note: string; pool: string; people: Record<string, Person>; sessions: string[] }
+
 const [pool, n, perNear, ...funders] = process.argv.slice(2);
 if (!funders.length) throw new Error('usage: seed-demo.mjs <pool> <sessions> <NEAR per session> <funder>...');
 const NETWORK = 'testnet';
 const ART = { wasm: 'artifacts/dev/transaction2x2.wasm', zkey: 'artifacts/dev/transaction2x2.zkey' };
-const creds = (id) => path.join(os.homedir(), '.near-credentials', NETWORK, `${id}.json`);
+const creds = (id: string) => path.join(os.homedir(), '.near-credentials', NETWORK, `${id}.json`);
 const { provider } = poolClient(pool, NETWORK);
-const acct = (id) => signerAccount(id, JSON.parse(fs.readFileSync(creds(id))).private_key, provider);
-const hex = (k) => k.privKey.toString(16);
+const acct = (id: string) => signerAccount(id, (JSON.parse(fs.readFileSync(creds(id))) as { private_key: string }).private_key, provider);
+const hex = (k: Keypair): string => k.privKey.toString(16);
 await initCrypto();
 
 const out = `demo/${NETWORK}.json`;
-const prev = fs.existsSync(out) ? JSON.parse(fs.readFileSync(out)) : null;
+const prev = fs.existsSync(out) ? JSON.parse(fs.readFileSync(out)) as DemoFile : null;
 // Alice and Bob: a public NEAR account (withdraw target) and a shielded key each
-const people = {};
+const people: Record<string, Person> = {};
 for (const name of ['alice', 'bob']) {
   if (prev?.people?.[name]) { people[name] = prev.people[name]; continue; }
   const account = `${name}.${funders[0]}`;

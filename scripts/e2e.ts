@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { initCrypto, Keypair, ShieldedWallet, OPEN_FEE } from '../sdk/src/index.ts';
 import { blockHeight, poolClient, signerAccount, send, sendOpen } from '../sdk/src/near.ts';
+import type { OpenRing, SendableCall } from '../sdk/src/near.ts';
 
 const env = process.env;
 const NETWORK = env.NPR_NETWORK ?? 'testnet';
@@ -19,36 +20,36 @@ const ART = {
   wasm: env.NPR_WASM ?? 'artifacts/dev/transaction2x2.wasm',
   zkey: env.NPR_ZKEY ?? 'artifacts/dev/transaction2x2.zkey',
 };
-const NEAR = (x) => BigInt(Math.round(x * 1e6)) * 10n ** 18n; // x NEAR in yocto
-const fmt = (y) => (Number(y / 10n ** 18n) / 1e6).toFixed(6);
+const NEAR = (x: number): bigint => BigInt(Math.round(x * 1e6)) * 10n ** 18n; // x NEAR in yocto
+const fmt = (y: bigint): string => (Number(y / 10n ** 18n) / 1e6).toFixed(6);
 
-function account(id) {
+function account(id: string) {
   const f = path.join(os.homedir(), '.near-credentials', NETWORK, `${id}.json`);
-  return signerAccount(id, JSON.parse(fs.readFileSync(f)).private_key, pool.provider);
+  return signerAccount(id, (JSON.parse(fs.readFileSync(f)) as { private_key: string }).private_key, pool.provider);
 }
-async function relay(call) {
+async function relay(call: SendableCall): Promise<string> {
   const r = await fetch(`${env.RELAYER_URL}/relay`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ receiverId: call.receiverId, method: call.method, args: call.args }),
   });
-  const j = await r.json();
+  const j = await r.json() as { txHash: string; error?: string };
   if (!r.ok) throw new Error(`relayer: ${j.error}`);
   return j.txHash;
 }
-const step = (s) => console.log(`\n▸ ${s}`);
-const tx = (h) => console.log(`  tx ${h}  https://${NETWORK === 'mainnet' ? '' : 'testnet.'}nearblocks.io/txns/${h}`);
+const step = (s: string) => console.log(`\n▸ ${s}`);
+const tx = (h: string) => console.log(`  tx ${h}  https://${NETWORK === 'mainnet' ? '' : 'testnet.'}nearblocks.io/txns/${h}`);
 
-const pool = poolClient(CONTRACT, NETWORK);
+const pool = poolClient(CONTRACT!, NETWORK);
 await initCrypto();
-const relayerInfo = await (await fetch(`${env.RELAYER_URL}/info`)).json();
-const alice = { acct: account(env.ALICE), w: new ShieldedWallet(new Keypair(), pool, ART) };
-const bob = { acct: account(env.BOB), w: new ShieldedWallet(new Keypair(), pool, ART) };
+const relayerInfo = await (await fetch(`${env.RELAYER_URL}/info`)).json() as { relayer: string; minFee: Record<string, string> };
+const alice = { acct: account(env.ALICE!), w: new ShieldedWallet(new Keypair(), pool, ART) };
+const bob = { acct: account(env.BOB!), w: new ShieldedWallet(new Keypair(), pool, ART) };
 console.log('alice shielded address', alice.w.keypair.address().slice(0, 24) + '…');
 console.log('bob   shielded address', bob.w.keypair.address().slice(0, 24) + '…');
 const show = async () => {
   await Promise.all([alice.w.sync(), bob.w.sync()]);
-  for (const [n, p] of [['alice', alice], ['bob', bob]]) console.log(`  ${n}: ${fmt(p.w.balance('near'))} NEAR, ${fmt(p.w.balance(WRAP))} wNEAR (shielded)`);
+  for (const [n, p] of [['alice', alice], ['bob', bob]] as const) console.log(`  ${n}: ${fmt(p.w.balance('near'))} NEAR, ${fmt(p.w.balance(WRAP))} wNEAR (shielded)`);
 };
 
 step('1. alice deposits 0.3 NEAR (public: alice, 0.3 NEAR)');
@@ -62,14 +63,14 @@ await show();
 
 step(`3. anonymous ring: bob withdraws 0.03 NEAR to his account via relayer ${relayerInfo.relayer} (bob never signs)`);
 const fee = BigInt(relayerInfo.minFee.near);
-tx(await relay(await bob.w.withdraw('near', NEAR(0.03), env.BOB, { relayer: relayerInfo.relayer, fee })));
+tx(await relay(await bob.w.withdraw('near', NEAR(0.03), env.BOB!, { relayer: relayerInfo.relayer, fee })));
 await show();
 
 // open ring: no relayer and no wallet. The proof is signed with a function-call key that is
 // published in open-ring/<network>.json; the fee pays storage and refunds the gas account.
-const open = JSON.parse(fs.readFileSync(env.NPR_OPEN ?? `open-ring/${NETWORK}.json`));
+const open = JSON.parse(fs.readFileSync(env.NPR_OPEN ?? `open-ring/${NETWORK}.json`)) as OpenRing;
 step(`3b. open ring: bob withdraws 0.01 NEAR with a public key of ${open.account} (no relayer, bob never signs)`);
-tx(await sendOpen(pool.provider, open, await bob.w.withdraw('near', NEAR(0.01), env.BOB, { relayer: open.account, fee: OPEN_FEE })));
+tx(await sendOpen(pool.provider, open, await bob.w.withdraw('near', NEAR(0.01), env.BOB!, { relayer: open.account, fee: OPEN_FEE })));
 await show();
 
 step('4. bob wraps 0.1 NEAR and deposits 0.1 wNEAR via ft_transfer_call');

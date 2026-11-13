@@ -17,3 +17,5 @@ jobs:
         run: node scripts/gen-fixtures.ts && cd contract && cargo test --lib
       - name: app builds
         run: cd app && npm ci && npm run build
+      - name: type check (SDK, agent, relayer, scripts, app)
+        run: npm ci && npm run typecheck

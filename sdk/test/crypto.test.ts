@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { initCrypto, poseidon, Keypair, Note, MerkleTree, assetId, extDataHash, FIELD_SIZE } from '../src/crypto.ts';
 
 await initCrypto();
-const fixtures = JSON.parse(fs.readFileSync(new URL('../../contract/tests/fixtures/dev.json', import.meta.url)));
+const fixtures = JSON.parse(fs.readFileSync(new URL('../../contract/tests/fixtures/dev.json', import.meta.url))) as { empty_root: string };
 
 test('empty tree root matches the contract', () => {
   assert.equal(new MerkleTree().root().toString(16).padStart(64, '0'), fixtures.empty_root);
@@ -16,8 +16,8 @@ test('note encrypts to its owner only', () => {
   const ct = n.encrypt(alice.view.publicKey);
   assert.equal(ct.length, 152);
   const back = Note.decrypt(alice, ct, 7);
-  assert.equal(back.commitment(), n.commitment());
-  assert.equal(back.index, 7);
+  assert.equal(back!.commitment(), n.commitment());
+  assert.equal(back!.index, 7);
   assert.equal(Note.decrypt(eve, ct, 7), null);
 });
 

@@ -1,8 +1,45 @@
 // Deposit from any chain (NEAR Intents 1Click): one widget for the Deposit tab (notes for this
 // wallet) and for payment links (notes for someone else's private address). See sdk/src/intents.ts.
 import { SOURCES, sourceInfo, quoteDeposit, depositStatus, walletLink, formatUnits, refundError } from '../../sdk/src/intents.ts';
+import type { OneClickStatus } from '../../sdk/src/intents.ts';
+import type { ShieldedWallet } from '../../sdk/src/index.ts';
 
-const STATUS = {
+type Timer = ReturnType<typeof setTimeout>;
+
+/** A deposit from another chain that is still in flight (kept in localStorage until it settles). */
+export interface PendingDeposit {
+  addr: string;
+  amountIn: string;
+  decimals: number;
+  src: number;
+  amount: string;
+  deadline: string;
+  to: string | null;
+  receipt: string | null;
+}
+/** A 1Click status response, with the delivery details the app reads. */
+export interface DepositStatus extends OneClickStatus {
+  swapDetails?: { destinationChainTxHashes?: { hash: string }[] };
+}
+/** A form rendered from xchainHtml: its named controls. */
+export interface XchainForm extends HTMLFormElement {
+  xamount: HTMLInputElement;
+  xsource: HTMLSelectElement;
+  xrefund: HTMLInputElement;
+}
+export interface XchainOptions {
+  pool: string;
+  to?: string;
+  wallet: () => Promise<ShieldedWallet>;
+  toUnits: (s: string) => bigint;
+  fromUnits: (v: bigint) => string;
+  store?: { get: () => PendingDeposit | null; set: (v: PendingDeposit | null) => void };
+  onSuccess?: (pending: PendingDeposit, status: DepositStatus, form: XchainForm) => unknown;
+  onRequest?: (amount: string) => void;
+  toast?: (text: string) => void;
+}
+
+const STATUS: Record<string, string> = {
   PENDING_DEPOSIT: 'Waiting for your deposit…',
   KNOWN_DEPOSIT_TX: 'Deposit seen. Waiting for confirmations…',
   PROCESSING: 'Swapping and delivering to the pool…',
@@ -11,12 +48,12 @@ const STATUS = {
   REFUNDED: 'Refunded to your address.',
   FAILED: 'Failed. NEAR Intents refunds it to your address.',
 };
-const DONE = new Set(['SUCCESS', 'REFUNDED', 'FAILED']);
+const DONE = new Set<string | undefined>(['SUCCESS', 'REFUNDED', 'FAILED']);
 const CHIPS = ['0.5', '1', '5'];
 const MIN = 10n ** 23n; // 0.1 NEAR: below this, bridge minimums make quotes fail
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]);
 
-export function xchainHtml({ amount = '', title = 'You receive privately', nearLogo, request = false }) {
+export function xchainHtml({ amount = '', title = 'You receive privately', nearLogo, request = false }: { amount?: string; title?: string; nearLogo: string; request?: boolean }) {
   return `
     <div class="box line">
       <label class="box-top" for="x-amount"><span>${title}</span><span>Native NEAR</span></label>
@@ -40,13 +77,13 @@ export function xchainHtml({ amount = '', title = 'You receive privately', nearL
  * opts: { pool, to?, wallet: async () => ShieldedWallet, toUnits, fromUnits, store?: {get,set,key},
  *         onSuccess(pending, status), onRequest?(amount), toast }
  */
-export function wireXchain(form, opts) {
+export function wireXchain(form: XchainForm, opts: XchainOptions) {
   const { toUnits, fromUnits } = opts;
-  let info = null, timer = null, seq = 0;
-  const $ = (s) => form.querySelector(s);
+  let info: Awaited<ReturnType<typeof sourceInfo>> | null = null, timer: Timer | null = null, seq = 0;
+  const $ = <E extends HTMLElement = HTMLElement>(s: string) => form.querySelector<E>(s)!;
   const src = () => SOURCES[Number(form.xsource.value)];
   const amount = () => { try { return toUnits(form.xamount.value); } catch { return null; } };
-  const setErr = (t) => { let e = $('.gate-err'); if (!e) { e = Object.assign(document.createElement('p'), { className: 'gate-err', role: 'alert' }); form.insertBefore(e, $('button[type=submit]')); } e.textContent = t; };
+  const setErr = (t: string) => { let e = $('.gate-err'); if (!e) { e = Object.assign(document.createElement('p'), { className: 'gate-err', role: 'alert' }); form.insertBefore(e, $('button[type=submit]')); } e.textContent = t; };
 
   const refreshChain = () => {
     $('.x-chain').textContent = src().chain;
@@ -66,14 +103,14 @@ export function wireXchain(form, opts) {
       $('.x-fees').innerHTML = row('Pool storage fee', '0.01 NEAR <small>included</small>') + row('NEAR Intents fee', '0.2% <small>included</small>') +
         row('Arrives', `~${Math.max(1, Math.round(q.timeEstimate / 60))} min after your deposit confirms`, 'fee-total');
     } catch (e) {
-      if (my === seq) $('.x-fees').innerHTML = row('Quote', esc(e.message));
+      if (my === seq) $('.x-fees').innerHTML = row('Quote', esc((e as Error).message));
     }
   }
-  let debounce;
+  let debounce: Timer | undefined;
   const reprice = () => { clearTimeout(debounce); debounce = setTimeout(price, 350); };
-  form.xamount.addEventListener('input', () => { form.querySelectorAll('[data-xchips] .chip').forEach((c) => c.classList.toggle('on', c.dataset.v === form.xamount.value)); reprice(); });
+  form.xamount.addEventListener('input', () => { form.querySelectorAll<HTMLElement>('[data-xchips] .chip').forEach((c) => c.classList.toggle('on', c.dataset.v === form.xamount.value)); reprice(); });
   form.xsource.addEventListener('change', () => { refreshChain(); reprice(); });
-  $('[data-xchips]').addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (!b) return; form.xamount.value = b.dataset.v; form.xamount.dispatchEvent(new Event('input')); });
+  $('[data-xchips]').addEventListener('click', (e) => { const b = (e.target as Element).closest<HTMLElement>('.chip'); if (!b) return; form.xamount.value = b.dataset.v!; form.xamount.dispatchEvent(new Event('input')); });
   $('.x-request')?.addEventListener('click', () => opts.onRequest?.(form.xamount.value.trim()));
 
   form.addEventListener('submit', async (e) => {
@@ -83,7 +120,7 @@ export function wireXchain(form, opts) {
     const bad = refundError(s, refund);
     if (bad) return setErr(bad);
     setErr('');
-    const btn = $('button[type=submit]');
+    const btn = $<HTMLButtonElement>('button[type=submit]');
     btn.disabled = true; btn.classList.add('is-busy'); btn.textContent = 'Proving in your browser…';
     try {
       info ??= await sourceInfo();
@@ -91,18 +128,18 @@ export function wireXchain(form, opts) {
       const d = await w.depositMsg('near', a, opts.to);
       btn.textContent = 'Getting a deposit address…';
       const q = (await quoteDeposit({ source: s, amountOut: d.total, pool: opts.pool, msg: d.msg, refundTo: refund, dry: false })).quote;
-      const pending = { addr: q.depositAddress, amountIn: q.amountIn, decimals: info[s.assetId].decimals, src: Number(form.xsource.value), amount: a.toString(), deadline: q.deadline, to: opts.to ?? null, receipt: d.receipt ?? null };
+      const pending: PendingDeposit = { addr: q.depositAddress!, amountIn: q.amountIn, decimals: info[s.assetId].decimals, src: Number(form.xsource.value), amount: a.toString(), deadline: q.deadline!, to: opts.to ?? null, receipt: d.receipt ?? null };
       opts.store?.set(pending);
       show(pending);
     } catch (err) {
       console.error(err);
-      setErr(err.message ?? String(err));
+      setErr((err as Error).message ?? String(err));
     } finally {
-      btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = btn.dataset.label;
+      btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = btn.dataset.label!;
     }
   });
 
-  function show(p) {
+  function show(p: PendingDeposit) {
     // round up, never down: sending less than the quote gets refunded
     const s = SOURCES[p.src], dp = Math.min(p.decimals, 8), step = 10n ** BigInt(p.decimals - dp);
     const amt = formatUnits(((BigInt(p.amountIn) + step - 1n) / step) * step, p.decimals);
@@ -119,20 +156,20 @@ export function wireXchain(form, opts) {
       <p class="x-status"><span class="spin" aria-hidden="true"></span><span class="x-st">${STATUS.PENDING_DEPOSIT}</span></p>
       <p class="note">${fromUnits(BigInt(p.amount))} NEAR arrives as a private balance${p.to ? ' for the person you are paying' : ''}. Send it before ${new Date(p.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}: a late or short deposit is refunded to your address, and so is anything above what the swap needs.</p>
       <button type="button" class="link x-reset">Start over</button>`;
-    box.querySelector('.x-copy').onclick = () => { navigator.clipboard.writeText(p.addr); opts.toast?.('Address copied'); };
-    box.querySelector('.x-reset').onclick = () => { if (!confirm('Stop tracking this deposit? Only do this if you have not sent anything to the address.')) return; reset(); };
+    box.querySelector<HTMLElement>('.x-copy')!.onclick = () => { navigator.clipboard.writeText(p.addr); opts.toast?.('Address copied'); };
+    box.querySelector<HTMLElement>('.x-reset')!.onclick = () => { if (!confirm('Stop tracking this deposit? Only do this if you have not sent anything to the address.')) return; reset(); };
     poll(p);
   }
   function reset() {
-    clearTimeout(timer);
+    clearTimeout(timer!);
     opts.store?.set(null);
     form.classList.remove('paying');
     $('.x-pay').hidden = true;
     $('.x-pay').innerHTML = '';
   }
-  async function poll(p) {
-    clearTimeout(timer);
-    let st = null;
+  async function poll(p: PendingDeposit) {
+    clearTimeout(timer!);
+    let st: DepositStatus | null = null;
     try { st = await depositStatus(p.addr); } catch {}
     const status = st?.status;
     const el = $('.x-st');
@@ -141,7 +178,7 @@ export function wireXchain(form, opts) {
     if (!DONE.has(status)) { timer = setTimeout(() => poll(p), 5000); return; }
     $('.spin')?.remove();
     opts.store?.set(null);
-    if (status === 'SUCCESS') await opts.onSuccess?.(p, st, form);
+    if (status === 'SUCCESS') await opts.onSuccess?.(p, st!, form);
     $('.x-reset').textContent = 'New deposit';
     $('.x-reset').onclick = reset;
   }
@@ -153,5 +190,5 @@ export function wireXchain(form, opts) {
   return { reprice: price };
 }
 
-const row = (k, v, cls = '') => `<div class="${cls}"><span>${k}</span><span>${v}</span></div>`;
-const trim = (s, dp) => { const [w, f = ''] = s.split('.'); const t = f.slice(0, dp).replace(/0+$/, ''); return t ? `${w}.${t}` : w; };
+const row = (k: string, v: string, cls = '') => `<div class="${cls}"><span>${k}</span><span>${v}</span></div>`;
+const trim = (s: string, dp: number) => { const [w, f = ''] = s.split('.'); const t = f.slice(0, dp).replace(/0+$/, ''); return t ? `${w}.${t}` : w; };

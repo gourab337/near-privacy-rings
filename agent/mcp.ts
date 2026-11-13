@@ -16,7 +16,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     if (!tool) throw new Error(`unknown tool ${req.params.name}`);
     return { content: [{ type: 'text', text: JSON.stringify(await tool.run(req.params.arguments ?? {})) }] };
   } catch (e) {
-    return { isError: true, content: [{ type: 'text', text: String(e.message ?? e) }] };
+    return { isError: true, content: [{ type: 'text', text: String((e as Error).message ?? e) }] };
   }
 });
 await server.connect(new StdioServerTransport());

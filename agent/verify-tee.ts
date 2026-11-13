@@ -6,12 +6,13 @@
 // Without a signing address it checks every attested key the model currently has.
 import { NEARAI } from './nearai.ts';
 import { verifyAttestation } from './attestation.ts';
+import type { AttestationReport } from './attestation.ts';
 
 const model = process.argv[2] ?? NEARAI.model;
-let keys = process.argv[3] ? [process.argv[3]] : [];
+let keys: string[] = process.argv[3] ? [process.argv[3]] : [];
 if (!keys.length) {
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex');
-  const r = await (await fetch(`${NEARAI.base}/attestation/report?model=${encodeURIComponent(model)}&nonce=${nonce}&signing_algo=ed25519`)).json();
+  const r = await (await fetch(`${NEARAI.base}/attestation/report?model=${encodeURIComponent(model)}&nonce=${nonce}&signing_algo=ed25519`)).json() as AttestationReport;
   keys = (r.model_attestations ?? []).map((a) => a.signing_address);
   console.log(`${model}: ${keys.length} attested signing key(s)`);
 }

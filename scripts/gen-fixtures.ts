@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import * as snarkjs from '../sdk/node_modules/snarkjs/main.js';
 import { initCrypto, Keypair, ShieldedWallet } from '../sdk/src/index.ts';
+import type { CallSpec, ExtDataJson, FtTransferCallArgs, Leaf, ProofArgs } from '../sdk/src/index.ts';
 import { MerkleTree } from '../sdk/src/crypto.ts';
 
 await initCrypto();
@@ -14,33 +15,33 @@ const TOKEN = 'wrap.testnet';
 const VALID_UNTIL = 1000n;
 
 // in-memory pool state
-const leaves = [];
-const spent = new Set();
+const leaves: Leaf[] = [];
+const spent = new Set<string>();
 const pool = {
   contractId: 'pool.near',
-  view: async (m, a) => (m === 'get_leaves' ? leaves.slice(a.from_index, a.from_index + a.limit) : spent.has(a.nullifier)),
+  view: async (m: string, a: { from_index: number; limit: number; nullifier: string }) => (m === 'get_leaves' ? leaves.slice(a.from_index, a.from_index + a.limit) : spent.has(a.nullifier)),
 };
 const tree = () => new MerkleTree(20, leaves.map((l) => BigInt('0x' + l.commitment)));
-function apply(proofArgs, ext) {
+function apply(proofArgs: ProofArgs, ext: ExtDataJson) {
   proofArgs.input_nullifiers.forEach((n) => spent.add(n));
   leaves.push({ commitment: proofArgs.output_commitments[0], encrypted_output: ext.encrypted_output1 });
   leaves.push({ commitment: proofArgs.output_commitments[1], encrypted_output: ext.encrypted_output2 });
 }
-async function check(proofArgs, ext, label) {
+async function check(proofArgs: ProofArgs, ext: ExtDataJson, label: string) {
   const sig = [proofArgs.root, proofArgs.public_amount, proofArgs.ext_data_hash, proofArgs.public_asset, ...proofArgs.input_nullifiers, ...proofArgs.output_commitments].map((h) => BigInt('0x' + h).toString());
   const proof = decodeProof(proofArgs.proof);
   if (!(await snarkjs.groth16.verify(vkey, sig, proof))) throw new Error(`${label}: proof does not verify`);
 }
 // re-encode NEAR proof bytes into snarkjs form, to check the encoding round-trips
-function decodeProof(b64) {
+function decodeProof(b64: string) {
   const b = Buffer.from(b64, 'base64');
-  const le = (o) => BigInt('0x' + Buffer.from(b.subarray(o, o + 32)).reverse().toString('hex')).toString();
+  const le = (o: number) => BigInt('0x' + Buffer.from(b.subarray(o, o + 32)).reverse().toString('hex')).toString();
   return { pi_a: [le(0), le(32), '1'], pi_b: [[le(64), le(96)], [le(128), le(160)], ['1', '0']], pi_c: [le(192), le(224), '1'], protocol: 'groth16', curve: 'bn128' };
 }
 
 const alice = new ShieldedWallet(new Keypair(11n), pool, ART);
 const bob = new ShieldedWallet(new Keypair(22n), pool, ART);
-const out = { note: `${SET} zkey fixtures`, empty_root: hex(tree().root()) };
+const out: Record<string, unknown> = { note: `${SET} zkey fixtures`, empty_root: hex(tree().root()) };
 
 // 1) alice deposits 10 native (yocto) units
 await alice.sync();
@@ -60,8 +61,8 @@ out.root_after_transfer = hex(tree().root());
 
 // 3) bob deposits 5 wrap.testnet via ft_transfer_call
 await bob.sync();
-const [, ft] = await bob.deposit(TOKEN, 5n);
-const msg = JSON.parse(ft.args.msg);
+const [, ft] = await bob.deposit(TOKEN, 5n) as [CallSpec<{}>, CallSpec<FtTransferCallArgs>];
+const msg = JSON.parse(ft.args.msg) as { args: ProofArgs; ext_data: ExtDataJson };
 await check(msg.args, msg.ext_data, 'ft deposit');
 out.ft_deposit = { msg: ft.args.msg, amount: ft.args.amount, token: TOKEN };
 apply(msg.args, msg.ext_data);
@@ -81,7 +82,7 @@ out.root_after_swap = hex(tree().root());
 
 // sanity: balances as the wallets see them after everything
 await Promise.all([alice.sync(), bob.sync()]);
-const bal = (w) => `${w.balance('near')} NEAR / ${w.balance(TOKEN)} wNEAR`;
+const bal = (w: ShieldedWallet) => `${w.balance('near')} NEAR / ${w.balance(TOKEN)} wNEAR`;
 console.log('alice', bal(alice), '| bob', bal(bob));
 if (alice.balance('near') !== 4n || alice.balance(TOKEN) !== 3n || bob.balance('near') !== 6n || bob.balance(TOKEN) !== 2n) throw new Error('unexpected balances');
 
@@ -102,6 +103,6 @@ fs.writeFileSync(`contract/tests/fixtures/${SET}.json`, JSON.stringify(out, null
 console.log(`wrote contract/tests/fixtures/${SET}.json`);
 process.exit(0);
 
-function hex(x) {
+function hex(x: bigint): string {
   return x.toString(16).padStart(64, '0');
 }

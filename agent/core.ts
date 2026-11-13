@@ -5,24 +5,57 @@
 // prompt-injected model cannot spend more than the operator allows. Payments go through the
 // open ring (no NEAR account, no gas, no relayer); swaps go through Rhea (sdk/src/rhea.ts).
 import { OPEN_FEE, verifyReceipt } from '../sdk/src/index.ts';
+import type { PoolView, ShieldedWallet, TransactCall } from '../sdk/src/index.ts';
+import type { OpenRing } from '../sdk/src/near.ts';
 import { RHEA, quote, minOut, privateSwap, newHopIndex } from '../sdk/src/rhea.ts';
+import type { PrivateSwapParams } from '../sdk/src/rhea.ts';
+
+/** Arguments of a tool call, as the model sent them (JSON). */
+export type ToolArgs = Record<string, unknown>;
+export type ToolResult = Record<string, string | boolean | undefined>;
+/** A payment tool: an MCP tool definition plus the function that runs it. */
+export interface Tool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  // method syntax: each tool declares the arguments its schema requires
+  run(args: ToolArgs): Promise<ToolResult>;
+}
+/** A payment: a transfer carries the sender's receipt, a withdrawal does not. */
+type PaymentCall = TransactCall & { receipt?: string };
+/** Mainnet only: enables private_swap. `onHop(index, done)` lets the caller keep the hop index until the swap is swept. */
+export interface SwapConfig {
+  provider: PrivateSwapParams['provider'];
+  open: OpenRing;
+  onHop?: (index: number, done: boolean) => unknown;
+}
+export interface CreateToolsOptions {
+  wallet: ShieldedWallet;
+  pool: PoolView;
+  submit: (call: TransactCall) => Promise<string>;
+  gasAccount: string;
+  network?: string;
+  maxPerPayment?: string;
+  maxTotal?: string;
+  swap?: SwapConfig;
+}
 
 const YOCTO = 10n ** 24n;
-export function toYocto(near) {
+export function toYocto(near: string): bigint {
   return toUnits(near, 24, 'NEAR');
 }
-function toUnits(v, decimals, symbol) {
+function toUnits(v: string, decimals: number, symbol: string): bigint {
   if (!new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`).test(String(v))) throw new Error(`amount must be a decimal number of ${symbol}, e.g. "0.05"`);
   const [i, f = ''] = String(v).split('.');
   return BigInt(i) * 10n ** BigInt(decimals) + BigInt(f.padEnd(decimals, '0') || '0');
 }
-const fmt = (v, decimals, shown = 6) => `${v / 10n ** BigInt(decimals)}.${(v % 10n ** BigInt(decimals)).toString().padStart(decimals, '0').slice(0, shown)}`;
-export const fromYocto = (y) => fmt(y, 24);
+const fmt = (v: bigint, decimals: number, shown = 6): string => `${v / 10n ** BigInt(decimals)}.${(v % 10n ** BigInt(decimals)).toString().padStart(decimals, '0').slice(0, shown)}`;
+export const fromYocto = (y: bigint): string => fmt(y, 24);
 /** What a private swap costs on top of the pool fee (README, Private swaps on Rhea). */
 export const SWAP_COST = 14n * 10n ** 22n;
 
 // tokens the swap tool knows, by symbol
-const SWAP_TOKENS = { NEAR: { id: 'near', decimals: 24 }, ...Object.fromEntries(Object.entries(RHEA.tokens).map(([id, t]) => [t.symbol, { id, decimals: t.decimals }])) };
+const SWAP_TOKENS: Record<string, { id: string; decimals: number }> = { NEAR: { id: 'near', decimals: 24 }, ...Object.fromEntries(Object.entries(RHEA.tokens).map(([id, t]) => [t.symbol, { id, decimals: t.decimals }])) };
 
 /**
  * @param {object} o
@@ -35,29 +68,29 @@ const SWAP_TOKENS = { NEAR: { id: 'near', decimals: 24 }, ...Object.fromEntries(
  * @param {string} [o.maxTotal]      hard cap on everything spent, fees included, in NEAR
  * @param {object} [o.swap]          mainnet only: { provider, open, onHop(index, done) } enables private_swap
  */
-export function createTools({ wallet, pool, submit, gasAccount, network = 'testnet', maxPerPayment = '1', maxTotal = '1', swap }) {
+export function createTools({ wallet, pool, submit, gasAccount, network = 'testnet', maxPerPayment = '1', maxTotal = '1', swap }: CreateToolsOptions): Tool[] {
   // the proof names the gas account as the fee's payee, so a copied transaction pays nobody else
   const fee = { relayer: gasAccount, fee: OPEN_FEE };
   const cap = toYocto(maxPerPayment);
   const budget = toYocto(maxTotal);
   let spent = 0n; // amounts and fees paid so far
-  const explorer = (h) => `https://${network === 'mainnet' ? '' : 'testnet.'}nearblocks.io/txns/${h}`;
-  const check = (amount, extra, what) => {
+  const explorer = (h: string): string => `https://${network === 'mainnet' ? '' : 'testnet.'}nearblocks.io/txns/${h}`;
+  const check = (amount: bigint, extra: bigint, what: string): void => {
     if (amount > cap) throw new Error(`refused: ${what} is above the per-payment cap of ${maxPerPayment} NEAR set by the operator`);
     if (spent + amount + extra > budget) throw new Error(`refused: total spending budget of ${maxTotal} NEAR set by the operator would be exceeded (spent ${fromYocto(spent)})`);
   };
 
   // builds a proof, merging notes first if the balance is split across more than two
-  async function pay(amountNear, build) {
+  async function pay(amountNear: string, build: (amount: bigint) => Promise<PaymentCall>): Promise<ToolResult> {
     const amount = toYocto(amountNear);
     if (amount === 0n) throw new Error('amount must be positive');
     check(amount, 2n * OPEN_FEE, `${amountNear} NEAR`); // worst case includes a merge
     await wallet.sync();
-    let call;
+    let call: PaymentCall;
     try {
       call = await build(amount);
     } catch (e) {
-      if (!/run merge first/.test(e.message)) throw e;
+      if (!/run merge first/.test((e as Error).message)) throw e;
       await submit(await wallet.merge('near', fee));
       spent += OPEN_FEE;
       await wallet.sync();
@@ -68,7 +101,7 @@ export function createTools({ wallet, pool, submit, gasAccount, network = 'testn
     return { tx, explorer: explorer(tx), fee_near: fromYocto(OPEN_FEE), receipt: call.receipt };
   }
 
-  const tools = [
+  const tools: Tool[] = [
     {
       name: 'shielded_address',
       description: 'The shielded address of this agent. Give it to anyone who should pay the agent privately.',
@@ -89,19 +122,19 @@ export function createTools({ wallet, pool, submit, gasAccount, network = 'testn
       name: 'private_send',
       description: 'Pay NEAR privately to a shielded address (starts with "npr"). The chain shows neither the payer, the recipient nor the amount. Returns a receipt that proves this one payment to whoever you show it to.',
       inputSchema: { type: 'object', required: ['to', 'amount_near'], properties: { to: { type: 'string', description: 'shielded address' }, amount_near: { type: 'string', description: 'decimal NEAR, e.g. "0.05"' } } },
-      run: ({ to, amount_near }) => pay(amount_near, (a) => wallet.transfer('near', a, to, fee)),
+      run: ({ to, amount_near }: { to: string; amount_near: string }) => pay(amount_near, (a) => wallet.transfer('near', a, to, fee)),
     },
     {
       name: 'private_withdraw',
       description: 'Pay NEAR from the private balance to a normal NEAR account. The chain shows the recipient and the amount, not who paid.',
       inputSchema: { type: 'object', required: ['recipient', 'amount_near'], properties: { recipient: { type: 'string', description: 'NEAR account id' }, amount_near: { type: 'string' } } },
-      run: ({ recipient, amount_near }) => pay(amount_near, (a) => wallet.withdraw('near', a, recipient, fee)),
+      run: ({ recipient, amount_near }: { recipient: string; amount_near: string }) => pay(amount_near, (a) => wallet.withdraw('near', a, recipient, fee)),
     },
     {
       name: 'verify_receipt',
       description: 'Check a payment receipt (starts with "nprreceipt") against the chain: was this exact amount paid to this shielded address?',
       inputSchema: { type: 'object', required: ['receipt'], properties: { receipt: { type: 'string' } } },
-      run: async ({ receipt }) => {
+      run: async ({ receipt }: { receipt: string }) => {
         const r = await verifyReceipt(pool, receipt);
         return { valid: r.valid, token: r.token, amount_near: fromYocto(r.amount), to: r.to };
       },
@@ -114,7 +147,7 @@ export function createTools({ wallet, pool, submit, gasAccount, network = 'testn
       name: 'private_swap',
       description: `Swap privately on Rhea between NEAR and ${symbols.slice(1).join(', ')} (one side must be NEAR). A single-use account does the swap and deposits the result back to this agent's private balance; nothing links it to the agent. Costs about 0.14 NEAR plus Rhea's 0.3% pool fee, and takes about a minute. The swap amounts are public on Rhea.`,
       inputSchema: { type: 'object', required: ['from', 'to', 'amount'], properties: { from: { type: 'string', enum: symbols }, to: { type: 'string', enum: symbols }, amount: { type: 'string', description: 'amount of the token given, decimal' } } },
-      run: async ({ from, to, amount }) => {
+      run: async ({ from, to, amount }: { from: string; to: string; amount: string }) => {
         const f = SWAP_TOKENS[String(from).toUpperCase()], t = SWAP_TOKENS[String(to).toUpperCase()];
         if (!f || !t || f === t || (f.id !== 'near' && t.id !== 'near')) throw new Error(`swap NEAR with one of ${symbols.slice(1).join(', ')}`);
         const amountIn = toUnits(amount, f.decimals, from);

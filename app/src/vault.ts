@@ -7,16 +7,24 @@
 
 const ITERATIONS = 600_000;
 const enc = new TextEncoder();
-const b64 = (u8) => btoa(String.fromCharCode(...u8));
-const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const b64 = (u8: Uint8Array) => btoa(String.fromCharCode(...u8));
+const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function derive(password, salt) {
+async function derive(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const base = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
+/** What seal() returns and open() takes; stored as JSON in localStorage. */
+export interface Sealed {
+  salt: string;
+  iv: string;
+  ct: string;
+  iterations: number;
+}
+
 /** Encrypts a hex private key. Returns a JSON-safe record. */
-export async function seal(hexKey, password) {
+export async function seal(hexKey: string, password: string): Promise<Sealed> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await derive(password, salt), enc.encode(hexKey)));
@@ -24,7 +32,7 @@ export async function seal(hexKey, password) {
 }
 
 /** Decrypts a record from seal(). Returns the hex key, or null if the password is wrong. */
-export async function open(record, password) {
+export async function open(record: Sealed, password: string): Promise<string | null> {
   try {
     const key = await derive(password, unb64(record.salt));
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(record.iv) }, key, unb64(record.ct));

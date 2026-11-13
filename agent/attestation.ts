@@ -13,10 +13,36 @@
 import dcap from '@phala/dcap-qvl';
 import { NEARAI } from './nearai.ts';
 
-const hex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
-const unhex = (s) => Uint8Array.from(String(s).replace(/^0x/, '').match(/../g) ?? [], (h) => parseInt(h, 16));
-const sha256hex = async (bytes) => hex(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes)));
-const norm = (a) => String(a ?? '').replace(/^0x/, '').toLowerCase();
+export interface AttestationCheck {
+  name: string;
+  /** null: the check did not run */
+  ok: boolean | null;
+  detail: string;
+}
+export interface AttestationResult {
+  ok: boolean;
+  checks: AttestationCheck[];
+  model?: string;
+  nonce: string;
+}
+/** One entry of GET /attestation/report (the fields we read). */
+interface ModelAttestation {
+  signing_address: string;
+  intel_quote: string;
+  nvidia_payload: string;
+  model_name?: string;
+  info?: { compose_hash?: string; tcb_info?: { compose_hash?: string; app_compose?: string } };
+}
+export interface AttestationReport {
+  model_attestations?: ModelAttestation[];
+}
+// browser global, absent in Node (this file is type-checked without the DOM lib)
+declare const window: unknown;
+
+const hex = (u8: Uint8Array): string => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
+const unhex = (s: unknown): Uint8Array => Uint8Array.from(String(s).replace(/^0x/, '').match(/../g) ?? [], (h) => parseInt(h, 16));
+const sha256hex = async (bytes: Uint8Array<ArrayBuffer>): Promise<string> => hex(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes)));
+const norm = (a: unknown): string => String(a ?? '').replace(/^0x/, '').toLowerCase();
 const isBrowser = typeof window !== 'undefined';
 // TD report fields inside a TDX v4 quote (48-byte header first)
 const MR_CONFIG_ID = 232, REPORT_DATA = 568;
@@ -25,17 +51,17 @@ const MR_CONFIG_ID = 232, REPORT_DATA = 568;
  * @returns {Promise<{ ok: boolean, checks: {name: string, ok: boolean|null, detail: string}[], model?: string, nonce: string }>}
  *   ok is true when every check that ran passed; a check with ok === null did not run.
  */
-export async function verifyAttestation({ base = NEARAI.base, model = NEARAI.model, signingAddress }) {
+export async function verifyAttestation({ base = NEARAI.base, model = NEARAI.model, signingAddress }: { base?: string; model?: string; signingAddress: string }): Promise<AttestationResult> {
   const nonce = hex(globalThis.crypto.getRandomValues(new Uint8Array(32)));
-  const checks = [];
-  const add = (name, ok, detail) => checks.push({ name, ok, detail });
+  const checks: AttestationCheck[] = [];
+  const add = (name: string, ok: boolean | null, detail: string) => checks.push({ name, ok, detail });
   const q = new URLSearchParams({ model, nonce, signing_algo: 'ed25519', signing_address: signingAddress });
   const res = await fetch(`${base}/attestation/report?${q}`);
   if (!res.ok) {
     add('Signing key is attested', false, `NEAR AI Cloud has no attestation for this key (${res.status})`);
     return { ok: false, checks, nonce };
   }
-  const report = await res.json();
+  const report = await res.json() as AttestationReport;
   const att = (report.model_attestations ?? []).find((a) => norm(a.signing_address) === norm(signingAddress));
   if (!att) {
     add('Signing key is attested', false, `no attestation for key ${norm(signingAddress).slice(0, 12)}… and model ${model}`);
@@ -49,7 +75,7 @@ export async function verifyAttestation({ base = NEARAI.base, model = NEARAI.mod
     const status = String(v.status);
     add('Intel TDX quote is genuine', status === 'UpToDate' || status === 'OutOfDate', `${status}, verified against Intel's certificates (collateral via Phala PCCS)`);
   } catch (e) {
-    add('Intel TDX quote is genuine', false, String(e?.message ?? e).slice(0, 160));
+    add('Intel TDX quote is genuine', false, String((e as Error)?.message ?? e).slice(0, 160));
   }
 
   // 2. the quote binds this signing key and our fresh nonce
@@ -74,12 +100,12 @@ export async function verifyAttestation({ base = NEARAI.base, model = NEARAI.mod
       const payload = JSON.parse(att.nvidia_payload);
       if (payload.nonce !== nonce) throw new Error('GPU evidence is not for our nonce');
       const r = await fetch('https://nras.attestation.nvidia.com/v3/attest/gpu', { method: 'POST', headers: { 'content-type': 'application/json' }, body: att.nvidia_payload });
-      const body = await r.json();
+      const body = await r.json() as string[][];
       const jwt = body?.[0]?.[1];
-      const claims = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString());
+      const claims: Record<string, unknown> = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString());
       add('NVIDIA GPU attestation', claims['x-nvidia-overall-att-result'] === true, `NRAS overall result ${claims['x-nvidia-overall-att-result']} (JWT signature not checked)`);
     } catch (e) {
-      add('NVIDIA GPU attestation', false, String(e?.message ?? e).slice(0, 160));
+      add('NVIDIA GPU attestation', false, String((e as Error)?.message ?? e).slice(0, 160));
     }
   }
   return { ok: checks.every((c) => c.ok !== false), checks, model: att.model_name, nonce };

@@ -1,9 +1,10 @@
 # NEAR Privacy Rings: one entry point for building and testing.
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 
-.PHONY: install wasm test test-contract test-sandbox test-sdk test-agent circuits e2e-testnet
+.PHONY: install wasm test test-contract test-sandbox test-sdk test-agent typecheck circuits e2e-testnet
 
 install:            ## JS dependencies
+	npm ci --silent
 	cd sdk && npm ci --silent
 	cd circuits && npm ci --silent
 	cd agent && npm ci --silent
@@ -18,6 +19,9 @@ test-sdk:
 
 test-agent:         ## agent payment tools against an in-memory pool, real proofs
 	cd agent && npm test
+
+typecheck:          ## TypeScript checks for the SDK, agent, relayer, scripts and app (needs app deps: cd app && npm ci)
+	npm run typecheck
 
 test-contract:      ## unit tests: real Groth16 proofs verified with alt_bn128 host functions
 	cd contract && cargo test --lib

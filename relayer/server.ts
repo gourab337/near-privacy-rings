@@ -7,10 +7,17 @@ import http from 'node:http';
 import { poolClient, signerAccount, send } from '../sdk/src/near.ts';
 import { STORAGE_FEE } from '../sdk/src/wallet.ts';
 
+/** A call spec as a client posts it to /relay (untrusted JSON). */
+interface RelayCall {
+  receiverId?: string;
+  method?: string;
+  args?: { ext_data?: { ext_amount: string; relayer: string; token: string; fee: string } } & Record<string, unknown>;
+}
+
 const { NPR_NETWORK = 'testnet', NPR_CONTRACT, RELAYER_ACCOUNT_ID, RELAYER_PRIVATE_KEY, PORT = 8787 } = process.env;
 // minimum fee per token in its smallest unit; tokens absent here are refused when a fee is due
 // default 0.02 NEAR: covers the 0.01 NEAR storage fee the relayer attaches plus ~64 Tgas
-const MIN_FEE = JSON.parse(process.env.RELAYER_MIN_FEE ?? '{"near":"20000000000000000000000","wrap.near":"20000000000000000000000","wrap.testnet":"20000000000000000000000"}');
+const MIN_FEE: Record<string, string> = JSON.parse(process.env.RELAYER_MIN_FEE ?? '{"near":"20000000000000000000000","wrap.near":"20000000000000000000000","wrap.testnet":"20000000000000000000000"}');
 // swaps hide the asset, so they cannot pay a fee; the operator sponsors them (or disables)
 const SPONSOR_SWAPS = process.env.RELAYER_SPONSOR_SWAPS !== 'false';
 
@@ -22,7 +29,7 @@ const pool = poolClient(NPR_CONTRACT, NPR_NETWORK);
 const account = signerAccount(RELAYER_ACCOUNT_ID, RELAYER_PRIVATE_KEY, pool.provider);
 
 /** Returns an error string, or null if the relayer is willing to submit `call`. */
-export function checkCall(call) {
+export function checkCall(call: RelayCall): string | null {
   if (call?.receiverId !== NPR_CONTRACT) return 'wrong contract';
   if (call.method === 'swap') return SPONSOR_SWAPS ? null : 'swaps are not sponsored';
   if (call.method !== 'transact') return 'only transact and swap are relayed';
@@ -36,7 +43,7 @@ export function checkCall(call) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const reply = (code, body) => {
+  const reply = (code: number, body: unknown) => {
     res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' });
     res.end(JSON.stringify(body));
   };
@@ -49,16 +56,16 @@ const server = http.createServer(async (req, res) => {
     if (body.length > 64 * 1024) return reply(413, { error: 'too large' });
   }
   try {
-    const call = JSON.parse(body);
+    const call = JSON.parse(body) as RelayCall;
     const err = checkCall(call);
     if (err) return reply(400, { error: err });
     // the relayer pays the storage fee itself (recovered from `fee`; sponsored for swaps)
     const deposit = call.method === 'swap' ? 2n * STORAGE_FEE : STORAGE_FEE;
-    const txHash = await send(account, { receiverId: call.receiverId, method: call.method, args: call.args, deposit });
+    const txHash = await send(account, { receiverId: call.receiverId!, method: call.method!, args: call.args!, deposit });
     console.log(new Date().toISOString(), call.method, txHash);
     reply(200, { txHash });
   } catch (e) {
-    reply(500, { error: String(e.message ?? e).slice(0, 500) });
+    reply(500, { error: String((e as Error).message ?? e).slice(0, 500) });
   }
 });
 server.listen(PORT, () => console.log(`relayer ${RELAYER_ACCOUNT_ID} -> ${NPR_CONTRACT} on :${PORT}`));

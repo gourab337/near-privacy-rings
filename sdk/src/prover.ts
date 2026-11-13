@@ -1,9 +1,49 @@
 // Builds circuit inputs for a 2-in/2-out shielded transaction and proves it.
 import * as snarkjs from 'snarkjs';
+import type { Groth16Proof } from 'snarkjs';
 import { FIELD_SIZE, Keypair, Note, extDataHash, toBytes32LE } from './crypto.ts';
+import type { AnyKeypair, ExtData, MerkleTree, Numeric } from './crypto.ts';
 
 export const N_INS = 2;
 export const N_OUTS = 2;
+
+/** The circuit's wasm and proving key: file paths (Node) or their bytes (browser). */
+export interface ProverArtifacts {
+  wasm: string | Uint8Array;
+  zkey: string | Uint8Array;
+}
+
+/** Public inputs and proof as the pool's `transact` / `swap` take them (hex fields, base64 proof). */
+export type ProofArgs = {
+  proof: string;
+  root: string;
+  input_nullifiers: string[];
+  output_commitments: string[];
+  public_amount: string;
+  ext_data_hash: string;
+  public_asset: string;
+};
+
+export interface BuildProofParams {
+  tree: MerkleTree;
+  inputs: Note[];
+  outputs: Note[];
+  asset: bigint;
+  ext: ExtData;
+  publicAsset: bigint;
+  artifacts: ProverArtifacts;
+  /** Owner of the zero-value padding outputs (a fresh key if omitted). */
+  changeKeypair?: AnyKeypair;
+}
+
+export interface BuiltProof {
+  proof: Groth16Proof;
+  publicSignals: string[];
+  args: ProofArgs;
+  /** The inputs and outputs actually proven, padded with dummies. */
+  inputs: Note[];
+  outputs: Note[];
+}
 
 /**
  * @param {object} p
@@ -15,7 +55,7 @@ export const N_OUTS = 2;
  * @param {bigint} p.publicAsset    0 for a hidden-asset transfer
  * @param {object} p.artifacts      { wasm, zkey } paths/buffers
  */
-export async function buildProof({ tree, inputs, outputs, asset, ext, publicAsset, artifacts, changeKeypair }) {
+export async function buildProof({ tree, inputs, outputs, asset, ext, publicAsset, artifacts, changeKeypair }: BuildProofParams): Promise<BuiltProof> {
   inputs = [...inputs];
   outputs = [...outputs];
   if (inputs.length > N_INS || outputs.length > N_OUTS) throw new Error('too many notes');
@@ -24,7 +64,7 @@ export async function buildProof({ tree, inputs, outputs, asset, ext, publicAsse
   while (outputs.length < N_OUTS) outputs.push(new Note({ amount: 0n, keypair: dummyKp, asset }));
 
   const publicAmount = (BigInt(ext.extAmount) - BigInt(ext.fee) + FIELD_SIZE) % FIELD_SIZE;
-  const paths = inputs.map((n) => (n.amount > 0n ? tree.path(n.index) : { pathElements: Array(tree.depth).fill(0n), pathIndices: 0 }));
+  const paths = inputs.map((n) => (n.amount > 0n ? tree.path(n.index!) : { pathElements: Array(tree.depth).fill(0n), pathIndices: 0 }));
 
   const input = {
     root: tree.root(),
@@ -35,7 +75,7 @@ export async function buildProof({ tree, inputs, outputs, asset, ext, publicAsse
     outputCommitment: outputs.map((n) => n.commitment()),
     asset,
     inAmount: inputs.map((n) => n.amount),
-    inPrivateKey: inputs.map((n) => n.keypair.privKey),
+    inPrivateKey: inputs.map((n) => n.keypair!.privKey),
     inBlinding: inputs.map((n) => n.blinding),
     inPathIndices: paths.map((p) => p.pathIndices),
     inPathElements: paths.map((p) => p.pathElements),
@@ -61,7 +101,7 @@ export async function buildProof({ tree, inputs, outputs, asset, ext, publicAsse
   };
 }
 
-export const hex32 = (x) => BigInt(x).toString(16).padStart(64, '0');
+export const hex32 = (x: Numeric): string => BigInt(x).toString(16).padStart(64, '0');
 
 /**
  * NEAR alt_bn128 encoding (little-endian limbs):
@@ -69,8 +109,8 @@ export const hex32 = (x) => BigInt(x).toString(16).padStart(64, '0');
  *   G2 = x.c0 || x.c1 || y.c0 || y.c1   (128 B)
  * Proof = A || B || C = 256 B, base64.
  */
-export function encodeProofNear(proof) {
-  const g1 = (p) => Buffer.concat([toBytes32LE(p[0]), toBytes32LE(p[1])]);
-  const g2 = (p) => Buffer.concat([toBytes32LE(p[0][0]), toBytes32LE(p[0][1]), toBytes32LE(p[1][0]), toBytes32LE(p[1][1])]);
+export function encodeProofNear(proof: Groth16Proof): string {
+  const g1 = (p: string[]) => Buffer.concat([toBytes32LE(p[0]), toBytes32LE(p[1])]);
+  const g2 = (p: string[][]) => Buffer.concat([toBytes32LE(p[0][0]), toBytes32LE(p[0][1]), toBytes32LE(p[1][0]), toBytes32LE(p[1][1])]);
   return Buffer.concat([g1(proof.pi_a), g2(proof.pi_b), g1(proof.pi_c)]).toString('base64');
 }

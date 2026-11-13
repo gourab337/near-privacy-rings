@@ -5,14 +5,16 @@ anonymous withdrawals and atomic private swaps. README.md says what is and is no
 
 ## Check it in three steps
 
-Requirements: Node 22+, Rust with the `wasm32-unknown-unknown` target. No keys or funds needed.
+Requirements: Node 22.18+ (it runs the TypeScript sources directly), Rust with the `wasm32-unknown-unknown` target. No keys or funds needed.
 
 1. `make install` — installs JS dependencies.
 2. `make test-sdk` — expect 7 passing tests (note encryption, addresses, Merkle paths, field
    encodings, viewing key, payment receipt, and the single-use accounts of Rhea swaps). `make test-agent` — expect 1 passing test:
    an agent is paid privately, refuses a payment over its cap and one over its total budget,
    pays, and its receipt verifies.
-3. `make test-contract` — expect 23 passing tests. They run real Groth16 proofs
+3. `make typecheck` — strict `tsc` over the SDK, agent, relayer, scripts and app (needs
+   `cd app && npm ci` first); expect no output.
+4. `make test-contract` — expect 23 passing tests. They run real Groth16 proofs
    (fixtures in `contract/tests/fixtures/`) through the contract, including NEAR's
    `alt_bn128` host functions: deposit, transfer, token deposit, swap, double spend,
    forged proof, tampered data, cap, expiry, failed-payout recovery, and the open ring
