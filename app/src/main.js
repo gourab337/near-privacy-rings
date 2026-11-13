@@ -16,6 +16,8 @@ import { createTools } from '../../agent/core.js';
 import { NEARAI, SYSTEM_PROMPT, runAgent } from '../../agent/nearai.js';
 import { siNear } from 'simple-icons';
 import { seal, open as openVault } from './vault.js';
+import { xchainHtml, wireXchain } from './xchain.js';
+import { SOURCES } from '../../sdk/src/intents.js';
 
 // the official NEAR mark (Simple Icons), drawn in currentColor
 const NEAR_LOGO = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="${siNear.path}"/></svg>`;
@@ -70,6 +72,8 @@ const SESSION_KEY = `npr:unlocked:${ns}`; // plain key of an unlocked own wallet
 const OFFER_STORE = `npr:offer:${ns}`;
 const EXPECTED_STORE = `npr:expected:${ns}`;
 const ACTIVITY_STORE = `npr:activity:${ns}`;
+const XCHAIN_STORE = `npr:xchain:${ns}`; // a deposit from another chain that is still in flight
+const PAY_STORE = `npr:pay:${ns}`; // the same, for a payment link
 const SWAP_TTL_BLOCKS = 1200n; // ~15-20 minutes
 const AMOUNTS = ['0.01', '0.05', '0.1'];
 
@@ -214,7 +218,7 @@ const feeRow = (k, v, cls = '') => `<div class="${cls}"><span>${k}</span><span>$
 function renderFees() {
   for (const form of $$('form[data-panel]')) {
     const line = $('.fee-line', form);
-    if (!line) continue;
+    if (!line || form.id === 'xchain') continue;
     let amt = null;
     try { amt = toUnits(form.amount.value); } catch {}
     if (form.dataset.panel === 'deposit') {
@@ -992,6 +996,88 @@ async function showKey() {
     <button type="button" class="primary" data-close>Done</button>`, async () => true);
 }
 
+// ------------------------------------------------------------------ deposits from any chain
+// NEAR Intents delivers wNEAR to the pool with the proof; the pool unwraps it into NEAR notes.
+const nearLogoHtml = () => `<span class="near-logo">${NEAR_LOGO}</span>`;
+const payLink = (address, amount) => `${location.origin}${location.pathname}?network=mainnet#pay=${encodeURIComponent(address)}${amount ? `&amount=${encodeURIComponent(amount)}` : ''}`;
+
+/** Waits until the pool's new notes are visible to this wallet (views lag a few seconds). */
+async function syncUntil(grown, tries = 15) {
+  for (let i = 0; i < tries; i++) {
+    await sync().catch(() => {});
+    if (grown()) return;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+
+function setupXchain() {
+  const any = NETWORK === 'mainnet' && !sw.viewOnly;
+  const setMode = (m) => {
+    $$('[data-dmode]').forEach((b) => b.classList.toggle('on', b.dataset.dmode === m));
+    $('#dep-wallet').classList.toggle('dmode-off', m !== 'wallet');
+    $('#xchain').classList.toggle('dmode-off', m !== 'any' || !any);
+    $('#xchain-off').classList.toggle('dmode-off', m !== 'any' || any);
+  };
+  $$('[data-dmode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.dmode)));
+  if (!any) return setMode('wallet');
+  const f = $('#xchain');
+  f.innerHTML = xchainHtml({ amount: '0.5', nearLogo: nearLogoHtml(), request: true }) +
+    '<p class="note">NEAR Intents swaps what you send and delivers it to the pool together with a proof made in your browser. The pool turns it into private NEAR. Your NEAR account never appears.</p>';
+  wireXchain(f, {
+    pool: CONTRACT, toUnits, fromUnits, toast,
+    wallet: async () => { await sw.sync(); return sw; },
+    store: { get: () => store.get(XCHAIN_STORE), set: (v) => store.set(XCHAIN_STORE, v) },
+    onRequest: (amount) => {
+      navigator.clipboard.writeText(payLink(sw.keypair.address(), amount));
+      toast('Payment link copied. Anyone can pay you privately from any chain.');
+    },
+    onSuccess: async (p, st) => {
+      const hash = st.swapDetails?.destinationChainTxHashes?.[0]?.hash;
+      if (hash) addActivity({ kind: 'deposit', hash, signer: 'NEAR Intents', time: Date.now(), title: `Deposit from ${SOURCES[p.src].chain} → private balance`, amount: fromUnits(BigInt(p.amount)), symbol: 'NEAR', fee: '0.01' });
+      const before = sw.balance('near');
+      await syncUntil(() => sw.balance('near') > before);
+      toast(`${fromUnits(BigInt(p.amount))} NEAR arrived in your private balance`);
+    },
+  });
+  setMode(store.get(XCHAIN_STORE) ? 'any' : 'wallet');
+}
+
+/** A payment link (#pay=<private address>&amount=…): pay someone privately from any chain, with no wallet here. */
+async function payPage(artifacts) {
+  const q = new URLSearchParams(location.hash.slice(1));
+  const to = q.get('pay'), amount = q.get('amount') ?? '';
+  const leave = () => history.replaceState(null, '', `${location.pathname}${location.search}`);
+  try { Keypair.parseAddress(to); } catch { leave(); return toast('This payment link has an invalid address.', true); }
+  if (NETWORK !== 'mainnet') { leave(); return toast('Payment links work on mainnet. Switch network at the top right and open the link again.', true); }
+  const dlg = $('#gate');
+  dlg.innerHTML = `<div class="gate pay">${MARK}
+    <h2>Pay privately</h2>
+    <p>To <span class="mono">${esc(short(to, 10, 8))}</span>. Pay from Solana, Base, Ethereum, Arbitrum or Bitcoin, with no NEAR account. On NEAR, nobody can see who was paid or how much.</p>
+    <form class="panel xchain" novalidate></form>
+    <button type="button" class="link" data-open>Open the app instead</button></div>`;
+  dlg.oncancel = (e) => e.preventDefault();
+  const form = $('form', dlg);
+  form.innerHTML = xchainHtml({ amount, title: 'Amount', nearLogo: nearLogoHtml() });
+  if (amount) { form.xamount.readOnly = true; $('[data-xchips]', form).hidden = true; }
+  let temp = null;
+  wireXchain(form, {
+    pool: CONTRACT, to, toUnits, fromUnits, toast,
+    // a throwaway key: the payer only needs the pool's tree to prove a deposit for `to`
+    wallet: async () => { temp ??= new ShieldedWallet(new Keypair(), pool, artifacts); await temp.sync(); return temp; },
+    store: { get: () => { const s = store.get(PAY_STORE); return s?.to === to ? s : null; }, set: (v) => store.set(PAY_STORE, v) },
+    onSuccess: (p, st, f) => {
+      const box = $('.x-pay', f);
+      box.insertAdjacentHTML('beforeend', `<div class="codebox"><label>Payment receipt</label><textarea readonly rows="3">${esc(p.receipt)}</textarea>
+        <button type="button" class="ghost x-receipt"><i class="ph ph-copy"></i> Copy receipt</button>
+        <p class="note">It proves you paid this amount to this address, and nothing else. Keep it; anyone can check it in the Prove tab.</p></div>`);
+      $('.x-receipt', box).onclick = () => { navigator.clipboard.writeText(p.receipt); toast('Receipt copied'); };
+    },
+  });
+  dlg.showModal();
+  await new Promise((resolve) => { $('[data-open]', dlg).onclick = () => { dlg.close(); resolve(); }; });
+  leave();
+}
+
 // ------------------------------------------------------------------ boot
 async function boot() {
   // network switcher in the header
@@ -1063,7 +1149,7 @@ async function boot() {
   const on = (sel, fn) => $(sel).addEventListener('submit', (e) => { e.preventDefault(); fn(e.target); });
   on('[data-panel=send]', onSend);
   on('[data-panel=withdraw]', onWithdraw);
-  on('[data-panel=deposit]', onDeposit);
+  on('#dep-wallet', onDeposit);
   on('#swap-offer', onOffer);
   on('#rhea-swap', onRhea);
   $('#rhea-swap').amount.addEventListener('input', () => renderRhea(true));
@@ -1137,8 +1223,9 @@ async function boot() {
   busy('Loading proving key…');
   await initCrypto();
   const artifacts = await loadArtifacts();
-  const rec = walletRecord();
   busy(false);
+  if (location.hash.startsWith('#pay=')) await payPage(artifacts);
+  const rec = walletRecord();
   let key;
   if (rec?.kind === 'demo') key = rec.key;
   else if (rec?.kind === 'own') key = sessionStorage.getItem(SESSION_KEY) ?? (await unlock(rec));
@@ -1158,6 +1245,7 @@ async function boot() {
   await sync();
   if (RHEA_ON) checkHops().catch(() => {});
   if (OPEN) agentSetup();
+  setupXchain();
 }
 
 boot().catch((e) => { console.error(e); toast(`Startup failed: ${e.message ?? e}`, true); busy(false); });

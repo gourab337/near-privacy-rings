@@ -92,6 +92,27 @@ export class ShieldedWallet {
   }
 
   /**
+   * A deposit that someone else delivers with `ft_transfer_call` (NEAR Intents, from any
+   * chain): returns `{ msg, total, sendToken }` and, for another address, a `receipt`.
+   * The notes go to this wallet, or to `toAddress` (a payment link).
+   * NEAR: deliver `total` = amount + STORAGE_FEE as wNEAR; the pool keeps the fee, unwraps
+   * the rest and creates native NEAR notes. Other tokens: deliver `total` = amount; the
+   * sending account needs prepaid storage on the pool.
+   */
+  async depositMsg(token, amount, toAddress) {
+    amount = BigInt(amount);
+    const asset = assetId(token);
+    const to = toAddress ? Keypair.parseAddress(toAddress) : null;
+    const out = to ? new Note({ amount, pubKey: to.pubKey, asset, viewPk: to.viewPk }) : new Note({ amount, keypair: this.keypair, asset });
+    if (to) out.viewPk = to.viewPk;
+    const { args, ext } = await this.#prove({ inputs: [], outputs: [out], asset, token, extAmount: amount });
+    const native = token === NATIVE;
+    const r = { msg: native ? compactDepositMsg(args, ext) : JSON.stringify({ args, ext_data: ext }), total: native ? amount + STORAGE_FEE : amount, sendToken: native ? null : token };
+    if (to) r.receipt = encodeReceipt({ token, amount, to: toAddress, blinding: out.blinding });
+    return r;
+  }
+
+  /**
    * Shielded -> shielded. Asset and amount stay hidden unless a relayer fee is paid
    * (the fee reveals the asset). `relayer` set => anonymous ring (submit via relayer).
    */
@@ -218,6 +239,19 @@ export class ShieldedWallet {
   #tx({ args, ext }) {
     return { receiverId: this.pool.contractId, method: 'transact', args: { args, ext_data: ext }, deposit: STORAGE_FEE };
   }
+}
+
+/**
+ * The compact form of a native-NEAR deposit message (the pool's `decode_compact`): NEAR Intents
+ * limits `msg` to 1024 characters. Fields the pool can derive (public amount and asset, ext-data
+ * hash, and the empty recipient, relayer, fee and swap leg) are left out.
+ */
+function compactDepositMsg(args, ext) {
+  const amount = BigInt(ext.ext_amount);
+  const amt = Buffer.from(amount.toString(16).padStart(32, '0'), 'hex');
+  const parts = [args.root, ...args.input_nullifiers, ...args.output_commitments].map((h) => Buffer.from(h, 'hex'));
+  const bytes = Buffer.concat([...parts, Buffer.from(args.proof, 'base64'), amt, Buffer.from(ext.encrypted_output1, 'base64'), Buffer.from(ext.encrypted_output2, 'base64')]);
+  return 'npr1:' + bytes.toString('base64');
 }
 
 // ---------------------------------------------------------------- payment receipts

@@ -12,11 +12,12 @@ Requirements: Node 22+, Rust with the `wasm32-unknown-unknown` target. No keys o
    encodings, viewing key, payment receipt, and the single-use accounts of Rhea swaps). `make test-agent` — expect 1 passing test:
    an agent is paid privately, refuses a payment over its cap and one over its total budget,
    pays, and its receipt verifies.
-3. `make test-contract` — expect 18 passing tests. They run real Groth16 proofs
+3. `make test-contract` — expect 23 passing tests. They run real Groth16 proofs
    (fixtures in `contract/tests/fixtures/`) through the contract, including NEAR's
    `alt_bn128` host functions: deposit, transfer, token deposit, swap, double spend,
    forged proof, tampered data, cap, expiry, failed-payout recovery, and the open ring
-   (zero-deposit transactions, including a front-running attempt).
+   (zero-deposit transactions, including a front-running attempt), and deposits through
+   NEAR Intents (wNEAR with a native-NEAR proof, including the compact `npr1:` message).
 
 Optional: `make test-sandbox` runs the same flow on a local NEAR sandbox and prints gas
 (it downloads a sandbox binary on first run).
@@ -30,6 +31,7 @@ Optional: `make test-sandbox` runs the same flow on a local NEAR sandbox and pri
 | `contract/src/verifier.rs` | Groth16 verification with `alt_bn128` host functions |
 | `sdk/src/wallet.js` | Shielded wallet: sync, deposit, transfer, withdraw, swap offers |
 | `sdk/src/rhea.js` | Private swaps on Rhea (mainnet) through a single-use account; `sweep` recovers one |
+| `sdk/src/intents.js`, `app/src/xchain.js` | Deposits from any chain and payment links through NEAR Intents (1Click) |
 | `agent/core.js`, `agent/tools.js`, `agent/mcp.js` | Private payments for AI agents: tools (also used by the app's Agent tab) and an MCP server |
 | `agent/nearai.js`, `agent/attestation.js` | NEAR AI Cloud client with reply-signature checks; TEE attestation checks (`node agent/verify-tee.mjs`, no key needed) |
 | `agent/demo.mjs` | The same tools driven by a model on NEAR AI Cloud (needs an API key) |

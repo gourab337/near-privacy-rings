@@ -400,3 +400,18 @@ dialog#token-dialog[open] { animation: panel-in 0.25s var(--ease); }
 .tee-badge { cursor: pointer; } .tee-caret { font-size: 14px !important; }
 .gate .net-note { text-align: center; font-size: 13px; margin: 6px 0 0; }
 .gate .net-note .link { display: block; margin: 2px auto 0; padding: 4px; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+/* deposits from any chain */
+.dmode-off { display: none !important; }
+.xchain .x-src { width: auto; flex: none; height: 40px; padding: 0 12px; border-radius: 999px; font-weight: 600; font-size: 15px; background: var(--surface); }
+.xchain .x-in { font-size: 30px; }
+.xchain .x-refund { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+.xchain .x-request { height: 44px; border-radius: 18px; justify-content: center; }
+.xchain.paying > :not(.x-pay):not(.note) { display: none !important; }
+.xchain .x-pay { display: grid; gap: 10px; }
+.xchain .x-addr { display: block; font-size: 13px; word-break: break-all; padding: 4px 2px 2px; color: var(--text); }
+.xchain .x-pay .ghost.wide { height: 46px; border-radius: 18px; justify-content: center; font-size: 15px; }
+.xchain .x-status { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; font-weight: 500; }
+.xchain .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--green); animation: spin 0.8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.gate.pay { max-height: 92vh; overflow: auto; }
+.gate.pay .xchain { gap: 8px; }

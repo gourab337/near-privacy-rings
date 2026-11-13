@@ -4,7 +4,9 @@ A zero-knowledge shielded pool for NEAR. You can hold NEAR and NEP-141 tokens in
 encrypted balances, send them privately, withdraw them anonymously, and swap two tokens
 atomically without revealing either side. Anonymous NEAR transactions need **no relayer**:
 they are signed with a key that is published in this repo (see [Open ring](#open-ring-anonymity-without-a-relayer)). AI agents can hold and spend
-private balances too, driven by models whose TEE we verify (see [Private AI agents](#private-ai-agents-private-inference-private-payments)). Every state change is
+private balances too, driven by models whose TEE we verify (see [Private AI agents](#private-ai-agents-private-inference-private-payments)).
+Anyone can deposit from Solana, Base, Ethereum, Arbitrum or Bitcoin with no NEAR account, and
+share a payment link that anyone can pay privately (see [Deposits from any chain](#deposits-from-any-chain-and-payment-links)). Every state change is
 proven with Groth16 and verified on-chain by NEAR's `alt_bn128` host functions.
 No trusted hardware or permissioned validators are involved.
 
@@ -35,6 +37,7 @@ mainnet):** [`site/walkthrough.mp4`](site/walkthrough.mp4).
 | Anonymous transfer / withdraw, relayer (any listed token) | relayer account, fee and its token; for withdraw: recipient + amount | who spent, which notes |
 | Private swap (peer to peer) | that *a* swap happened | both tokens, both amounts, both parties (when relayed) |
 | Private swap on Rhea (mainnet) | a single-use account swapped token A for token B on Rhea, and both amounts | who swapped, which notes paid, which notes received |
+| Deposit from any chain or payment link (mainnet) | on the source chain: your wallet paid a NEAR Intents deposit address; on NEAR: NEAR Intents deposited this amount | on NEAR, your account (you need none) and, for a payment link, who was paid |
 
 ## Try it
 
@@ -146,6 +149,45 @@ What this does not solve, stated plainly:
 - **Your RPC node still sees your IP address**, as a relayer would.
 - **Spam still costs nothing to send.** The front-running fix stops anyone profiting, not
   anyone wasting the gas account's balance.
+
+## Deposits from any chain and payment links
+
+Deposit → **Any chain** lets someone with SOL, USDC, ETH or BTC on Solana, Base, Ethereum,
+Arbitrum or Bitcoin fund a private NEAR balance, with no NEAR account and no bridging. The
+same flow powers **payment links**: "Copy a payment link" shares
+`app.nearprivacyrings.xyz/#pay=<private address>&amount=…`, and whoever opens it pays that
+address privately from any of those chains, with no wallet in the app.
+
+1. The browser builds a deposit proof for native NEAR notes owned by you, or by the link's
+   address. A payment link uses a throwaway key: the payer only needs the pool's Merkle root.
+2. It asks NEAR Intents' [1Click API](https://docs.near-intents.org) for an exact-output quote:
+   deliver `amount + 0.01` wNEAR to the pool with `ft_transfer_call`, carrying the proof as the
+   message. 1Click returns a one-time deposit address on the source chain (and, for Solana, a
+   wallet link).
+3. The user sends the quoted amount there. 1Click swaps it and delivers the wNEAR.
+4. The pool checks the proof, keeps 0.01 NEAR for storage, unwraps the wNEAR into native NEAR
+   and creates the notes. They work with the open ring like any other NEAR notes.
+
+The contract change behind it: `ft_on_transfer` from `wrap.near` with a native-NEAR proof
+becomes native notes, and a compact `npr1:` message (989 characters) fits 1Click's limit of
+1024; the fields the pool can derive are left out and the proof still binds them. Tested on
+testnet with a real `ft_transfer_call` (62.7 Tgas in the pool), and by unit tests.
+Code: [`sdk/src/intents.js`](sdk/src/intents.js), `depositMsg` in
+[`sdk/src/wallet.js`](sdk/src/wallet.js), [`app/src/xchain.js`](app/src/xchain.js).
+
+Limits:
+
+- **1Click's message field is marked "highly experimental".** If a delivery fails (for
+  example, too little gas reaches the pool), the wNEAR goes back to NEAR Intents, and recovering
+  it depends on 1Click. Use small amounts.
+- **The source chain is public.** It shows your wallet paying a NEAR Intents deposit address,
+  and NEAR Intents itself can link that payment to the deposit. On NEAR, only NEAR Intents
+  appears as the depositor.
+- **Costs:** 1Click's 0.2% fee (no API key) and the swap spread, plus the 0.01 NEAR storage
+  fee. Minimum 0.1 NEAR; Bitcoin's minimum is higher (about 1.7 NEAR when tested).
+- **Deadline and refunds.** A deposit that arrives late or short is refunded to the refund
+  address you give; anything above what the swap needs is refunded too.
+- Mainnet only (NEAR Intents runs there). Notes arrive as NEAR; other tokens are a swap away.
 
 ## Private swaps on Rhea
 
@@ -337,7 +379,10 @@ Payments are NEAR only, since the open ring is; the agent reaches other tokens b
   wNEAR notes are unaffected.
 - **Upgradeability.** The owner can list tokens, set caps and pause. It cannot move user
   notes. The deployer account keeps its key, so it can redeploy the contract. That is
-  disclosed here rather than hidden. Deposits are capped.
+  disclosed here rather than hidden. Deposits are capped. It was used once after launch,
+  on 2026-11-13, to add deposits through NEAR Intents
+  ([upgrade](https://nearblocks.io/txns/3GormkBH6TqLhsLJcys8qiKYcuTYQLP2q5rFC7uxnCny); code hash
+  `FcCXSAGgY76s9cepe75AUdVeqs4ky9p8U1s2gFnNioda`, from `cargo near build non-reproducible-wasm --features mainnet`).
 
 ## Roadmap
 

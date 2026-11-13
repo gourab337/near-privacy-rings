@@ -47,6 +47,7 @@ pub const STORAGE_FEE: u128 = 10_000_000_000_000_000_000_000; // 0.01 NEAR
 pub const OPEN_MIN_FEE: u128 = 2 * STORAGE_FEE;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_ON_PAYOUT: Gas = Gas::from_tgas(10);
+const GAS_UNWRAP: Gas = Gas::from_tgas(10);
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -147,6 +148,24 @@ trait FungibleToken {
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
 }
 
+#[ext_contract(ext_wrap)]
+#[allow(dead_code)]
+trait WrappedNear {
+    fn near_withdraw(&mut self, amount: U128);
+}
+
+/// An NEP-141 deposit message: the proof and its ext data.
+#[near(serializers = [json])]
+struct Msg {
+    args: TxArgs,
+    ext_data: ExtData,
+}
+
+/// The wrapped-NEAR contract of this network.
+fn wrap_id() -> &'static str {
+    if env::current_account_id().as_str().ends_with(".testnet") { "wrap.testnet" } else { "wrap.near" }
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Pool {
@@ -198,7 +217,7 @@ impl Pool {
                 "without a deposit: NEAR transfers and withdrawals only, fee >= 0.02 NEAR"
             );
             require!(ext_data.relayer == env::predecessor_account_id().as_str(), "without a deposit: the proof must name the submitting account as relayer");
-            return self.process(&args, &ext_data, true);
+            return self.process(&args, &ext_data, true, 0);
         }
         let value = if ext > 0 {
             require!(ext_data.token == NATIVE, "NEP-141 deposits go through ft_transfer_call");
@@ -207,7 +226,7 @@ impl Pool {
             0
         };
         require!(attached == value + STORAGE_FEE, "attach ext_amount (native deposits) + STORAGE_FEE (0.01 NEAR)");
-        self.process(&args, &ext_data, false);
+        self.process(&args, &ext_data, false, 0);
     }
 
     /// Prepay storage for NEP-141 deposits (one STORAGE_FEE per deposit). At least STORAGE_FEE
@@ -225,20 +244,29 @@ impl Pool {
     /// NEP-141 deposit: `ft_transfer_call(pool, amount, msg = {"args":..,"ext_data":..})`.
     /// Any panic here makes the token contract refund the full amount.
     pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128> {
-        #[near(serializers = [json])]
-        struct Msg {
-            args: TxArgs,
-            ext_data: ExtData,
-        }
-        let m: Msg = near_sdk::serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str("invalid msg"));
+        let m = match msg.strip_prefix("npr1:") {
+            Some(c) => self.decode_compact(c),
+            None => near_sdk::serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str("invalid msg")),
+        };
         let token = env::predecessor_account_id();
         require!(token.as_str() != NATIVE, "native NEAR is deposited with transact");
+        // wNEAR sent with a native-NEAR proof becomes native NEAR notes: the pool keeps
+        // STORAGE_FEE of it and unwraps the whole amount. This lets someone deposit with no
+        // NEAR account (NEAR Intents delivers wNEAR through ft_transfer_call), and the notes
+        // then work with the open ring.
+        if token.as_str() == wrap_id() && m.ext_data.token == NATIVE {
+            let e = m.ext_data.ext_amount.0;
+            require!(e > 0 && (e as u128).checked_add(STORAGE_FEE) == Some(amount.0), "amount mismatch: send ext_amount + STORAGE_FEE");
+            self.process(&m.args, &m.ext_data, false, amount.0);
+            ext_wrap::ext(token).with_attached_deposit(NearToken::from_yoctonear(1)).with_static_gas(GAS_UNWRAP).near_withdraw(amount).detach();
+            return PromiseOrValue::Value(U128(0));
+        }
         require!(m.ext_data.token == token.as_str(), "token mismatch");
         let credit = self.storage_credit.get(&sender_id).copied().unwrap_or(0);
         require!(credit >= STORAGE_FEE, "prepay_storage first (0.01 NEAR per deposit)");
         self.storage_credit.insert(sender_id, credit - STORAGE_FEE);
         require!(m.ext_data.ext_amount.0 > 0 && m.ext_data.ext_amount.0 as u128 == amount.0, "amount mismatch");
-        self.process(&m.args, &m.ext_data, false);
+        self.process(&m.args, &m.ext_data, false, 0);
         PromiseOrValue::Value(U128(0))
     }
 
@@ -263,7 +291,7 @@ impl Pool {
         require!(va.commitments.contains(&sb), "leg A does not create the note leg B expects");
         self.apply(&mut h, &va, &ext_a);
         self.apply(&mut h, &vb, &ext_b);
-        self.assert_solvent();
+        self.assert_solvent(0);
     }
 
     /// Re-try a payout whose transfer failed (e.g. recipient not registered with the token).
@@ -352,9 +380,47 @@ impl Pool {
 // ---------------------------------------------------------------------- internals
 
 impl Pool {
+    /// Compact deposit message, for senders that limit `msg` (NEAR Intents allows 1024 chars):
+    /// "npr1:" + base64(root | nullifier 0 | nullifier 1 | commitment 0 | commitment 1 |
+    /// proof (256 bytes) | ext_amount (u128, big-endian) | encrypted output 1 | encrypted output 2).
+    /// It always means a native-NEAR deposit with no recipient, relayer, fee, swap leg or expiry;
+    /// the public amount, public asset and ext-data hash are derived, and the proof checks them.
+    fn decode_compact(&self, c: &str) -> Msg {
+        const E: usize = ENCRYPTED_OUTPUT_LEN;
+        let b: Base64VecU8 = near_sdk::serde_json::from_value(near_sdk::serde_json::Value::String(c.into())).unwrap_or_else(|_| env::panic_str("invalid msg"));
+        let b = b.0;
+        require!(b.len() == 5 * 32 + 256 + 16 + 2 * E, "invalid msg");
+        let f = |i: usize| to_hex(&b[i * 32..i * 32 + 32].try_into().unwrap());
+        let amount = u128::from_be_bytes(b[416..432].try_into().unwrap());
+        require!(amount > 0 && amount <= i128::MAX as u128, "invalid msg");
+        let ext = ExtData {
+            recipient: String::new(),
+            ext_amount: I128(amount as i128),
+            relayer: String::new(),
+            fee: U128(0),
+            encrypted_output1: Base64VecU8(b[432..432 + E].to_vec()),
+            encrypted_output2: Base64VecU8(b[432 + E..].to_vec()),
+            token: NATIVE.into(),
+            swap_leg: to_hex(&[0u8; 32]),
+            valid_until: U64(0),
+        };
+        let asset = self.tokens.get(NATIVE).unwrap_or_else(|| env::panic_str("token not supported")).asset_id.clone();
+        let args = TxArgs {
+            proof: Base64VecU8(b[160..416].to_vec()),
+            root: f(0),
+            input_nullifiers: [f(1), f(2)],
+            output_commitments: [f(3), f(4)],
+            public_amount: to_hex(&public_amount(amount as i128, 0)),
+            ext_data_hash: to_hex(&ext.hash()),
+            public_asset: asset,
+        };
+        Msg { args, ext_data: ext }
+    }
+
     /// `open`: a zero-deposit transaction. The relayer gets the fee minus STORAGE_FEE,
-    /// which stays in the pool's balance to pay for the new storage.
-    fn process(&mut self, args: &TxArgs, ext: &ExtData, open: bool) {
+    /// which stays in the pool's balance to pay for the new storage. `incoming`: native
+    /// NEAR already on its way to the pool (wNEAR being unwrapped).
+    fn process(&mut self, args: &TxArgs, ext: &ExtData, open: bool, incoming: u128) {
         require!(!self.paused, "paused");
         let v = self.verify_leg(args, ext, false);
         let mut h = Hasher::new();
@@ -377,7 +443,7 @@ impl Pool {
             self.debit(&ext.token, fee);
             self.payout(&ext.token, relayer, if open { fee - STORAGE_FEE } else { fee }).detach();
         }
-        self.assert_solvent();
+        self.assert_solvent(incoming);
     }
 
     /// Checks every public input against contract state and ext data, then the proof.
@@ -464,11 +530,11 @@ impl Pool {
     }
 
     /// Native NEAR owed to users plus storage staking must always be covered.
-    fn assert_solvent(&self) {
+    fn assert_solvent(&self, incoming: u128) {
         let owed = self.tokens.get(NATIVE).map(|t| t.tvl.0).unwrap_or(0);
         let storage = env::storage_byte_cost().as_yoctonear() * env::storage_usage() as u128;
         require!(
-            env::account_balance().as_yoctonear() >= owed + storage,
+            env::account_balance().as_yoctonear() + incoming >= owed + storage,
             "pool needs more NEAR for storage; ask the operator to top up"
         );
     }

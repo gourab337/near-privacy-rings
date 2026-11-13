@@ -306,3 +306,80 @@ fn prepay_storage_needs_a_deposit() {
     ctx("mallory.near", 0);
     p.prepay_storage(Some("x".repeat(64).parse().unwrap()));
 }
+
+#[test]
+fn wnear_with_native_proof_becomes_native_notes() {
+    let f = fx();
+    let mut p = pool(1000);
+    let (a, e) = tx(&f["deposit"]);
+    let msg = serde_json::json!({ "args": a, "ext_data": e }).to_string();
+    // no prepaid storage: the pool keeps STORAGE_FEE out of the wNEAR
+    ctx("wrap.near", 0);
+    p.ft_on_transfer("intents.near".parse().unwrap(), U128(10 + STORAGE_FEE), msg);
+    assert_eq!(p.get_root(), root(&f, "root_after_deposit"));
+    assert_eq!(p.get_token(NATIVE.into()).unwrap().tvl.0, 10);
+}
+
+#[test]
+#[should_panic(expected = "amount mismatch")]
+fn wnear_native_deposit_must_include_storage_fee() {
+    let f = fx();
+    let mut p = pool(1000);
+    let (a, e) = tx(&f["deposit"]);
+    let msg = serde_json::json!({ "args": a, "ext_data": e }).to_string();
+    ctx("wrap.near", 0);
+    p.ft_on_transfer("intents.near".parse().unwrap(), U128(10), msg);
+}
+
+#[test]
+#[should_panic(expected = "token mismatch")]
+fn native_proof_from_other_token_rejected() {
+    let f = fx();
+    let mut p = pool(1000);
+    let (a, e) = tx(&f["deposit"]);
+    let msg = serde_json::json!({ "args": a, "ext_data": e }).to_string();
+    ctx(WRAP, 0); // wrap.testnet is just another token for a pool on .near
+    p.ft_on_transfer("intents.near".parse().unwrap(), U128(10 + STORAGE_FEE), msg);
+}
+
+/// The compact "npr1:" message (NEAR Intents caps msg at 1024 chars) built from the fixture.
+fn compact(v: &Value) -> String {
+    use near_sdk::base64::Engine;
+    let (a, e) = tx(v);
+    let mut b = Vec::new();
+    for h in [&a.root, &a.input_nullifiers[0], &a.input_nullifiers[1], &a.output_commitments[0], &a.output_commitments[1]] {
+        b.extend(hex::decode(h).unwrap());
+    }
+    b.extend(&a.proof.0);
+    b.extend((e.ext_amount.0 as u128).to_be_bytes());
+    b.extend(&e.encrypted_output1.0);
+    b.extend(&e.encrypted_output2.0);
+    format!("npr1:{}", near_sdk::base64::engine::general_purpose::STANDARD.encode(b))
+}
+
+#[test]
+fn compact_wnear_deposit_becomes_native_notes() {
+    let f = fx();
+    let mut p = pool(1000);
+    let msg = compact(&f["deposit"]);
+    assert!(msg.len() <= 1024, "{} chars", msg.len());
+    ctx("wrap.near", 0);
+    p.ft_on_transfer("intents.near".parse().unwrap(), U128(10 + STORAGE_FEE), msg);
+    assert_eq!(p.get_root(), root(&f, "root_after_deposit"));
+    assert_eq!(p.get_token(NATIVE.into()).unwrap().tvl.0, 10);
+}
+
+#[test]
+#[should_panic(expected = "invalid proof")]
+fn compact_deposit_with_wrong_amount_rejected() {
+    let f = fx();
+    let mut p = pool(1000);
+    let mut msg = compact(&f["deposit"]);
+    // re-encode with ext_amount 11 instead of 10: the derived public amount no longer matches the proof
+    use near_sdk::base64::Engine;
+    let mut b = near_sdk::base64::engine::general_purpose::STANDARD.decode(&msg[5..]).unwrap();
+    b[431] = 11;
+    msg = format!("npr1:{}", near_sdk::base64::engine::general_purpose::STANDARD.encode(b));
+    ctx("wrap.near", 0);
+    p.ft_on_transfer("intents.near".parse().unwrap(), U128(11 + STORAGE_FEE), msg);
+}
