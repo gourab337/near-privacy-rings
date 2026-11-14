@@ -5,7 +5,7 @@ encrypted balances, send them privately, withdraw them anonymously, and swap two
 atomically without revealing either side. Anonymous NEAR transactions need **no relayer**:
 they are signed with a key that is published in this repo (see [Open ring](#open-ring-anonymity-without-a-relayer)). AI agents can hold and spend
 private balances too, driven by models whose TEE we verify (see [Private AI agents](#private-ai-agents-private-inference-private-payments)).
-Anyone can deposit from Solana, Base, Ethereum, Arbitrum or Bitcoin with no NEAR account, and
+Anyone can deposit USDC, USDT, SOL, ETH or BTC from Solana, Base, Ethereum, Arbitrum or Bitcoin with no NEAR account, and
 share a payment link that anyone can pay privately (see [Deposits from any chain](#deposits-from-any-chain-and-payment-links)). Every state change is
 proven with Groth16 and verified on-chain by NEAR's `alt_bn128` host functions.
 No trusted hardware or permissioned validators are involved.
@@ -17,7 +17,7 @@ It is not a port of their code.
 **Try it:** the app at https://app.nearprivacyrings.xyz opens on mainnet (real NEAR,
 private swaps on Rhea and the AI agent). To try it for free, pick "Use a free testnet demo" on
 the first screen, or **Testnet** at the top right: a pre-funded demo wallet, no setup needed. Website: https://nearprivacyrings.xyz.
-On X: [@ringsonnear](https://x.com/ringsonnear). **Demo video (2:20, narrated,
+On X: [@ringsonnear](https://x.com/ringsonnear). **Demo video (2:41, narrated,
 mainnet):** [`site/walkthrough.mp4`](site/walkthrough.mp4).
 
 > **Status: live on NEAR mainnet** at [`rings.primeis.near`](https://nearblocks.io/address/rings.primeis.near),
@@ -42,7 +42,8 @@ mainnet):** [`site/walkthrough.mp4`](site/walkthrough.mp4).
 ## Try it
 
 ```bash
-make install      # JS deps
+make install      # dependencies; Node 22.18+ runs the TypeScript sources directly, no build step
+make typecheck    # strict tsc over the SDK, agent, relayer, scripts and app
 make test         # SDK tests, contract unit tests with real proofs, sandbox e2e with gas
 ```
 
@@ -72,7 +73,8 @@ separate wallet per network.
 
 ## Try the demo
 
-Open https://gourab337.github.io/near-privacy-rings/. Do this, and see that:
+Open https://app.nearprivacyrings.xyz/?network=testnet (or open the app and pick "Just trying
+it? Use a free testnet demo"). Do this, and see that:
 
 1. Choose **Try a demo wallet**: the page picks a pre-funded wallet (0.5 testnet NEAR). No
    NEAR wallet connection. (Or **Create private wallet** for your own key, encrypted in the
@@ -90,6 +92,12 @@ Open https://gourab337.github.io/near-privacy-rings/. Do this, and see that:
    browser. Give the agent 0.1 NEAR privately, paste a NEAR AI Cloud API key (free credits at
    nearbuilders.org) and pick **Try a prompt injection**: the model in the TEE pays the
    invoice, refuses the injected tip, and every reply shows a verified TEE signature.
+8. **Any-chain deposits (mainnet, nothing is sent).** Switch to **mainnet** (top right),
+   create or restore a wallet, then **Deposit → Any chain**. Pick a token from the menu (for
+   example USDC on Base): a live NEAR Intents quote shows what you would pay. **Copy a payment
+   link for this amount** and open it in a new tab: the payer's page, priced in any of the
+   supported tokens. Only **Get deposit address** asks 1Click for a real address, and only
+   sending funds there makes a deposit.
 
 The demo keys (sessions, Alice, Bob) are published on purpose in
 [`demo/testnet.json`](demo/testnet.json), seeded by `scripts/seed-demo.ts`. They hold
@@ -152,8 +160,9 @@ What this does not solve, stated plainly:
 
 ## Deposits from any chain and payment links
 
-Deposit → **Any chain** lets someone with USDC, USDT, SOL, ETH or BTC on Solana, Base, Ethereum,
-Arbitrum or Bitcoin fund a private NEAR balance, with no NEAR account and no bridging. The
+Deposit → **Any chain** lets someone fund a private NEAR balance from another chain, with no
+NEAR account and no bridging. They can pay with USDC (Ethereum, Base, Arbitrum, Solana), USDT
+(Ethereum), SOL, ETH (Ethereum, Base, Arbitrum) or BTC. The
 same flow powers **payment links**: "Copy a payment link" shares
 `app.nearprivacyrings.xyz/#pay=<private address>&amount=…`, and whoever opens it pays that
 address privately from any of those chains, with no wallet in the app.
@@ -184,7 +193,8 @@ Limits:
   and NEAR Intents itself can link that payment to the deposit. On NEAR, only NEAR Intents
   appears as the depositor.
 - **Costs:** 1Click's 0.2% fee (no API key) and the swap spread, plus the 0.01 NEAR storage
-  fee. Minimum 0.1 NEAR; Bitcoin's minimum is higher (about 1.7 NEAR when tested).
+  fee. Minimum 0.1 NEAR. Some routes have a higher bridge minimum (Bitcoin: about 1.6 NEAR);
+  the app shows it in NEAR when an amount is too small.
 - **Deadline and refunds.** A deposit that arrives late or short is refunded to the refund
   address you give; anything above what the swap needs is refunded too.
 - Mainnet only (NEAR Intents runs there). Notes arrive as NEAR; other tokens are a swap away.
@@ -367,16 +377,20 @@ Payments are NEAR only, since the open ring is; the agent reaches other tokens b
   notes is spent, so the provider can tie your notes to your IP address before you spend
   them. Use your own node or Tor for strong privacy.
 - **Browser key storage.** The web app keeps your shielded key in this site's local
-  storage, encrypted with your password. GitHub Pages sites under one account
-  (`gourab337.github.io`) share that storage, so another page there could copy the ciphertext
-  and try to guess a weak password offline. Use a strong password and back the key up; a
-  build served from its own domain avoids this.
+  storage, encrypted with your password. Use a strong password and back the key up. The app at
+  app.nearprivacyrings.xyz has its own domain. The GitHub Pages copy shares storage with other
+  `gourab337.github.io` pages, which could copy the ciphertext and try to guess a weak password
+  offline.
 - **Storage fee margin.** Each proof adds about 900 bytes (0.009 NEAR at current prices)
   and pays 0.01 NEAR. If storage costs rose above the fee, new transactions would fail
   until the pool account is topped up.
 - **Token issuer controls.** Circle (USDC) and Tether (USDT) can freeze tokens held by any
   account, including the pool; bridged tokens (ZEC, AURORA) depend on their bridges. NEAR and
   wNEAR notes are unaffected.
+- **Quantum computers.** Groth16 on BN254 is not quantum-safe: a large quantum computer could
+  forge proofs and spend any note. Its proofs reveal nothing even to such a computer, but the
+  notes' X25519 encryption could be decrypted later. NEAR's ML-DSA account keys do not change
+  this, because notes are spent with proofs, not signatures. See Roadmap.
 - **Upgradeability.** The owner can list tokens, set caps and pause. It cannot move user
   notes. The deployer account keeps its key, so it can redeploy the contract. That is
   disclosed here rather than hidden. Deposits are capped. It was used once after launch,
@@ -400,7 +414,7 @@ Not done for the hackathon, and needed before this holds meaningful value:
 6. **An indexer**, so wallets do not scan every leaf.
 7. **Rhea swaps inside the contract**, settling the swap and the new note in one transaction,
    to drop the single-use account and most of its 0.14 NEAR cost.
-8. **A STARK-based pool.** Groth16 needs a trusted setup and is not quantum-safe: a quantum
+8. **A quantum-safe private wallet: a STARK-based pool.** Groth16 needs a trusted setup and is not quantum-safe: a quantum
    computer could forge a proof and spend any note. A STARK pool (a STARK-friendly hash,
    verified in the contract) needs no trusted setup and makes spending quantum-safe.
    Notes would move to it by withdrawing and depositing again.
